@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/gotk3/gotk3/gtk"
+	"github.com/twitchyliquid64/diagg/flow"
 	"github.com/twitchyliquid64/diagg/ui"
 )
 
@@ -35,7 +36,8 @@ func (w *Win) build() error {
 		return err
 	}
 
-	fcv, fcvRoot, err := ui.NewFlowchartView()
+	l := ui.NewLayout(flow.NewSNode("test node", ""))
+	fcv, fcvRoot, err := ui.NewFlowchartView(l)
 	if err != nil {
 		return err
 	}

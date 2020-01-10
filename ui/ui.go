@@ -2,6 +2,8 @@
 package ui
 
 import (
+	"fmt"
+
 	"github.com/gotk3/gotk3/cairo"
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
@@ -18,11 +20,13 @@ type FlowchartView struct {
 	zoom    float64
 
 	width, height int
+
+	l *FlowLayout
 }
 
-func NewFlowchartView() (*FlowchartView, *gtk.DrawingArea, error) {
+func NewFlowchartView(l *FlowLayout) (*FlowchartView, *gtk.DrawingArea, error) {
 	var err error
-	fcv := &FlowchartView{zoom: 5}
+	fcv := &FlowchartView{zoom: 1, l: l}
 
 	if fcv.da, err = gtk.DrawingAreaNew(); err != nil {
 		return nil, nil, err
@@ -54,21 +58,24 @@ func (fcv *FlowchartView) onCanvasConfigureEvent(da *gtk.DrawingArea, event *gdk
 }
 
 func (fcv *FlowchartView) onCanvasDrawEvent(da *gtk.DrawingArea, cr *cairo.Context) bool {
-	cr.SetSourceRGB(0, 0, 0)
+	cr.SetSourceRGB(0.12, 0.12, 0.12)
 	cr.Paint()
-	cr.SetLineWidth(2)
+	cr.SetLineWidth(5)
 
+	cr.Save()
 	cr.Translate(float64(30)+fcv.offsetX, float64(30)+fcv.offsetY)
 	if fcv.zoom > 0 {
 		cr.Scale(fcv.zoom, fcv.zoom)
 	}
+	fcv.l.Draw(da, cr, 1)
+	cr.Restore()
 
 	cr.SetSourceRGB(1, 1, 1)
-	roundedRect(da, cr, 0, 0, 20, 20, 2)
-	cr.StrokePreserve()
-	cr.SetSourceRGB(0.5, 0.1, 0.1)
-	cr.Fill()
-
+	cr.MoveTo(float64(fcv.width-60), float64(fcv.height-22))
+	cr.ShowText(fmt.Sprintf("Zoom: %.2f", fcv.zoom))
+	ps := fmt.Sprintf("Pos: %3.2f, %3.2f", fcv.offsetX, fcv.offsetY)
+	cr.MoveTo(float64(fcv.width)-cr.TextExtents(ps).Width-4, float64(fcv.height-5))
+	cr.ShowText(ps)
 	return false
 }
 
@@ -103,9 +110,9 @@ func (fcv *FlowchartView) onReleaseEvent(area *gtk.DrawingArea, event *gdk.Event
 
 func (fcv *FlowchartView) onScrollEvent(area *gtk.DrawingArea, event *gdk.Event) {
 	evt := gdk.EventScrollNewFromEvent(event)
-	amt := evt.DeltaY()
+	amt := evt.DeltaY() / 20
 	if amt == 0 {
-		amt = 1
+		amt = 0.05
 	}
 
 	switch evt.Direction() {
@@ -114,5 +121,8 @@ func (fcv *FlowchartView) onScrollEvent(area *gtk.DrawingArea, event *gdk.Event)
 	}
 
 	fcv.zoom += amt
+	if fcv.zoom <= 0 {
+		fcv.zoom = 0.05
+	}
 	fcv.da.QueueDraw()
 }
