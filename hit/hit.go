@@ -36,7 +36,7 @@ func (b *bucket) add(min, max Point, obj TestableObj) {
 func (b *bucket) test(p Point) TestableObj {
 	for i := len(b.objs) - 1; i >= 0; i-- {
 		o := b.objs[i]
-		if o.min.X <= p.X && o.min.Y <= p.Y && o.max.X <= p.X && o.max.Y <= p.Y {
+		if o.min.X <= p.X && o.min.Y <= p.Y && o.max.X >= p.X && o.max.Y >= p.Y {
 			if o.obj.HitTest(p) {
 				return o.obj
 			}

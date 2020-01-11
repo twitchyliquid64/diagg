@@ -206,3 +206,48 @@ func TestAreaAdd(t *testing.T) {
 		})
 	}
 }
+
+type dummyObj struct {
+	min, max Point
+}
+
+func (d dummyObj) HitTest(p Point) bool {
+	return p.X >= d.min.X && p.X <= d.max.X && p.Y >= d.min.Y && p.Y <= d.max.Y
+}
+
+func TestAreaHitTest(t *testing.T) {
+	a := NewArea(Point{}, Point{400, 400})
+
+	d := dummyObj{Point{35, 55}, Point{121, 185}}
+	a.Add(d.min, d.max, d)
+
+	if a.Test(Point{0, 0}) != nil {
+		t.Error("Test(0,0) did not return nil")
+	}
+	if a.Test(Point{100, 0}) != nil {
+		t.Error("Test(100,0) did not return nil")
+	}
+	for x := d.min.X; x < d.max.X; x++ {
+		for y := d.min.Y; y < d.max.Y; y++ {
+			if got := a.Test(Point{x, y}); got != d {
+				t.Errorf("Test(%v,%v) did not return inserted object, got %v", x, y, got)
+			}
+		}
+	}
+
+	d2 := dummyObj{Point{45, 65}, Point{111, 175}}
+	a.Add(d2.min, d2.max, d2)
+	for x := d2.min.X; x < d2.max.X; x++ {
+		for y := d2.min.Y; y < d2.max.Y; y++ {
+			if got := a.Test(Point{x, y}); got != d2 {
+				t.Errorf("Test(%v,%v) did not return inserted object, got %v", x, y, got)
+			}
+		}
+	}
+	if a.Test(Point{100, 0}) != nil {
+		t.Error("Test(100,0) did not return nil")
+	}
+	if got := a.Test(Point{38, 55}); got != d {
+		t.Errorf("Test(38,55) = %v, want %v", got, d)
+	}
+}
