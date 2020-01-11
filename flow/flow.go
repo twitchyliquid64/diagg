@@ -12,6 +12,6 @@ type Pad interface {
 	PadID() string
 
 	// ConnectType restricts the pads which this pad can be connected to,
-	// if it returns a non-nill value.
+	// if it returns a non-nil value.
 	ConnectType() interface{}
 }

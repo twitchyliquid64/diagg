@@ -7,6 +7,8 @@ import (
 	"github.com/gotk3/gotk3/cairo"
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
+	"github.com/twitchyliquid64/diagg/flow"
+	"github.com/twitchyliquid64/diagg/ui/flowrender"
 )
 
 type FlowchartView struct {
@@ -21,12 +23,15 @@ type FlowchartView struct {
 
 	width, height int
 
-	l *FlowLayout
+	l *flow.Layout
+	r flowrender.Appearance
+
+	displayList []flow.DrawCommand
 }
 
-func NewFlowchartView(l *FlowLayout) (*FlowchartView, *gtk.DrawingArea, error) {
+func NewFlowchartView(l *flow.Layout) (*FlowchartView, *gtk.DrawingArea, error) {
 	var err error
-	fcv := &FlowchartView{zoom: 1, l: l}
+	fcv := &FlowchartView{zoom: 1, l: l, r: &flowrender.BasicRenderer{}}
 
 	if fcv.da, err = gtk.DrawingAreaNew(); err != nil {
 		return nil, nil, err
@@ -47,7 +52,8 @@ func NewFlowchartView(l *FlowLayout) (*FlowchartView, *gtk.DrawingArea, error) {
 		gdk.BUTTON_RELEASE_MASK |
 		gdk.SCROLL_MASK)) // GDK_MOTION_NOTIFY
 
-	return fcv, fcv.da, nil
+	fcv.displayList, err = fcv.l.DisplayList()
+	return fcv, fcv.da, err
 }
 
 func (fcv *FlowchartView) onCanvasConfigureEvent(da *gtk.DrawingArea, event *gdk.Event) bool {
@@ -67,7 +73,7 @@ func (fcv *FlowchartView) onCanvasDrawEvent(da *gtk.DrawingArea, cr *cairo.Conte
 	if fcv.zoom > 0 {
 		cr.Scale(fcv.zoom, fcv.zoom)
 	}
-	fcv.l.Draw(da, cr, 1)
+	fcv.draw(da, cr)
 	cr.Restore()
 
 	cr.SetSourceRGB(1, 1, 1)
@@ -77,6 +83,17 @@ func (fcv *FlowchartView) onCanvasDrawEvent(da *gtk.DrawingArea, cr *cairo.Conte
 	cr.MoveTo(float64(fcv.width)-cr.TextExtents(ps).Width-4, float64(fcv.height-5))
 	cr.ShowText(ps)
 	return false
+}
+
+func (fcv *FlowchartView) draw(da *gtk.DrawingArea, cr *cairo.Context) {
+	for _, cmd := range fcv.displayList {
+		switch c := cmd.(type) {
+		case flow.DrawNodeCmd:
+			fcv.r.DrawNode(da, cr, 0, c.Node, c.Layout)
+		case flow.DrawPadCmd:
+			fcv.r.DrawPad(da, cr, 0, c.Pad, c.Layout)
+		}
+	}
 }
 
 func (fcv *FlowchartView) onMotionEvent(area *gtk.DrawingArea, event *gdk.Event) {
