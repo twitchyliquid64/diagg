@@ -5,6 +5,7 @@ package flow
 type Node interface {
 	NodeID() string
 	Pads() []Pad
+	Size() (float64, float64)
 }
 
 // Pad describes a connection point on a node.

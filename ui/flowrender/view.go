@@ -24,8 +24,9 @@ type BasicRenderer struct{}
 
 func (r *BasicRenderer) DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, n flow.Node, layout positionedElement) {
 	x, y := layout.Pos()
+	w, h := n.Size()
 	cr.SetSourceRGB(1, 1, 1)
-	roundedRect(da, cr, x, y, 200, 120, 2)
+	roundedRect(da, cr, x, y, w, h, 2)
 	cr.StrokePreserve()
 	cr.SetSourceRGB(0.5, 0.1, 0.1)
 	cr.Fill()
