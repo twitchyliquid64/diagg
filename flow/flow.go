@@ -11,6 +11,7 @@ type Node interface {
 // Pad describes a connection point on a node.
 type Pad interface {
 	PadID() string
+	Size() (float64, float64)
 
 	// ConnectType restricts the pads which this pad can be connected to,
 	// if it returns a non-nil value.

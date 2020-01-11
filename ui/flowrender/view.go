@@ -25,14 +25,15 @@ type BasicRenderer struct{}
 func (r *BasicRenderer) DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, n flow.Node, layout positionedElement) {
 	x, y := layout.Pos()
 	w, h := n.Size()
+	hw, hh := w/2, h/2
 	cr.SetSourceRGB(1, 1, 1)
-	roundedRect(da, cr, x, y, w, h, 2)
+	roundedRect(da, cr, x-hw, y-hh, w, h, 2)
 	cr.StrokePreserve()
 	cr.SetSourceRGB(0.5, 0.1, 0.1)
 	cr.Fill()
 
 	if hln, ok := n.(headlineElement); ok {
-		cr.MoveTo(x+7, y+18)
+		cr.MoveTo(x-hw+7, y-hh+18)
 		cr.SetSourceRGB(1, 1, 1)
 		cr.SetFontSize(16)
 		cr.ShowText(hln.NodeHeadline())

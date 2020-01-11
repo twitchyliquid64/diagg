@@ -8,30 +8,42 @@ import (
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/twitchyliquid64/diagg/flow"
+	"github.com/twitchyliquid64/diagg/hit"
 	"github.com/twitchyliquid64/diagg/ui/flowrender"
 )
 
 type FlowchartView struct {
 	da *gtk.DrawingArea
 
+	// TODO: refactor into own type?
 	dragStartX, dragStartY float64
 	dragging               bool
 
+	// State of the viewport.
 	offsetX float64
 	offsetY float64
 	zoom    float64
 
+	// width/height of the drawing area.
 	width, height int
 
-	l *flow.Layout
-	r flowrender.Appearance
-
+	// State related to the loaded flowchart.
+	nMin, nMax  hit.Point
+	l           *flow.Layout
+	r           flowrender.Appearance
+	h           *hit.Area
 	displayList []flow.DrawCommand
 }
 
 func NewFlowchartView(l *flow.Layout) (*FlowchartView, *gtk.DrawingArea, error) {
 	var err error
-	fcv := &FlowchartView{zoom: 1, l: l, r: &flowrender.BasicRenderer{}}
+	fcv := &FlowchartView{
+		offsetX: 30,
+		offsetY: 30,
+		zoom:    1,
+		l:       l,
+		r:       &flowrender.BasicRenderer{},
+	}
 
 	if fcv.da, err = gtk.DrawingAreaNew(); err != nil {
 		return nil, nil, err
@@ -52,8 +64,19 @@ func NewFlowchartView(l *flow.Layout) (*FlowchartView, *gtk.DrawingArea, error) 
 		gdk.BUTTON_RELEASE_MASK |
 		gdk.SCROLL_MASK)) // GDK_MOTION_NOTIFY
 
-	fcv.displayList, err = fcv.l.DisplayList()
+	err = fcv.initRenderState()
+
+	// Set initial offsets so the left-top side is in full view.
+	fcv.offsetX, fcv.offsetY = -fcv.nMin.X+30, -fcv.nMin.Y+30
 	return fcv, fcv.da, err
+}
+
+func (fcv *FlowchartView) initRenderState() (err error) {
+	var min, max [2]float64
+	min, max, fcv.displayList, err = fcv.l.DisplayList()
+	fcv.nMin, fcv.nMax = hit.Point{X: min[0], Y: min[1]}, hit.Point{X: max[0], Y: max[1]}
+	fcv.h = hit.NewArea(fcv.nMin, fcv.nMax)
+	return err
 }
 
 func (fcv *FlowchartView) onCanvasConfigureEvent(da *gtk.DrawingArea, event *gdk.Event) bool {
@@ -69,7 +92,7 @@ func (fcv *FlowchartView) onCanvasDrawEvent(da *gtk.DrawingArea, cr *cairo.Conte
 	cr.SetLineWidth(5)
 
 	cr.Save()
-	cr.Translate(float64(30)+fcv.offsetX, float64(30)+fcv.offsetY)
+	cr.Translate(fcv.offsetX, fcv.offsetY)
 	if fcv.zoom > 0 {
 		cr.Scale(fcv.zoom, fcv.zoom)
 	}
@@ -98,11 +121,16 @@ func (fcv *FlowchartView) draw(da *gtk.DrawingArea, cr *cairo.Context) {
 
 func (fcv *FlowchartView) onMotionEvent(area *gtk.DrawingArea, event *gdk.Event) {
 	evt := gdk.EventMotionNewFromEvent(event)
+	x, y := evt.MotionVal()
+
 	if fcv.dragging {
-		x, y := evt.MotionVal()
 		fcv.offsetX = -(fcv.dragStartX - x)
 		fcv.offsetY = -(fcv.dragStartY - y)
 	}
+
+	// tp := hit.Point{X: x - fcv.offsetX, Y: y - fcv.offsetY}
+	// hit := fcv.h.Test(tp)
+	// fmt.Println(tp, hit)
 	fcv.da.QueueDraw()
 }
 

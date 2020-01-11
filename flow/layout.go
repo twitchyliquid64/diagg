@@ -39,9 +39,44 @@ type Layout struct {
 	// compute the right order ahead of time?
 }
 
+type positionable interface {
+	Pos() (float64, float64)
+}
+
+type sizeable interface {
+	Size() (float64, float64)
+}
+
+type bounds struct {
+	minX, minY float64
+	maxX, maxY float64
+}
+
+func (b *bounds) update(pos positionable, size sizeable) {
+	pX, pY := pos.Pos()
+	sX, sY := size.Size()
+
+	lowerX, lowerY := pX-sX/2, pY-sY/2
+	if lowerX < b.minX {
+		b.minX = lowerX
+	}
+	if lowerY < b.minY {
+		b.minY = lowerY
+	}
+
+	higherX, higherY := pX+sX/2, pY+sY/2
+	if higherX > b.maxX {
+		b.maxX = higherX
+	}
+	if higherY > b.maxY {
+		b.maxY = higherY
+	}
+}
+
 type dlState struct {
 	renderedNodes map[string]struct{}
 	renderedPads  map[string]struct{}
+	bounds        *bounds
 }
 
 type DrawObject uint8
@@ -74,12 +109,16 @@ type DrawCommand interface {
 	DrawObject() DrawObject
 }
 
-func (fl *Layout) DisplayList() ([]DrawCommand, error) {
-	dl := make([]DrawCommand, 0, 256)
-	return fl.populateDrawList(dl, fl.root, dlState{
+func (fl *Layout) DisplayList() (min, max [2]float64, dl []DrawCommand, err error) {
+	b := &bounds{}
+	b.update(fl.nodes[fl.root.NodeID()], fl.root)
+
+	dl, err = fl.populateDrawList(make([]DrawCommand, 0, 256), fl.root, dlState{
 		renderedNodes: make(map[string]struct{}, len(fl.nodes)),
 		renderedPads:  make(map[string]struct{}, len(fl.pads)),
+		bounds:        b,
 	})
+	return [2]float64{b.minX, b.minY}, [2]float64{b.maxY, b.maxY}, dl, err
 }
 
 func (fl *Layout) populateDrawList(outList []DrawCommand, n Node, s dlState) ([]DrawCommand, error) {
@@ -90,6 +129,7 @@ func (fl *Layout) populateDrawList(outList []DrawCommand, n Node, s dlState) ([]
 	s.renderedNodes[nID] = struct{}{}
 	nl := fl.nodes[nID]
 	outList = append(outList, DrawNodeCmd{Node: n, Layout: nl})
+	s.bounds.update(nl, n)
 
 	for _, p := range n.Pads() {
 		pID := p.PadID()
@@ -97,7 +137,9 @@ func (fl *Layout) populateDrawList(outList []DrawCommand, n Node, s dlState) ([]
 			continue
 		}
 		s.renderedPads[pID] = struct{}{}
-		outList = append(outList, DrawPadCmd{Pad: p, Layout: fl.pads[pID]})
+		pl := fl.pads[pID]
+		outList = append(outList, DrawPadCmd{Pad: p, Layout: pl})
+		s.bounds.update(pl, p)
 	}
 	return outList, nil
 }
