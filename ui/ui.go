@@ -14,12 +14,15 @@ import (
 
 type dragState struct {
 	StartX, StartY float64
+	ObjX, ObjY     float64
 	dragging       bool
+	target         hit.TestableObj // only valid for left-mouse-click.
 }
 
 type FlowchartView struct {
 	da *gtk.DrawingArea
 
+	lmc dragState // left mouse click, like moving a node.
 	pan dragState
 
 	// State of the viewport.
@@ -84,6 +87,8 @@ func (fcv *FlowchartView) initRenderState() (err error) {
 	return nil
 }
 
+// rectHitChecker returns true as rectangles should be completely represented
+// by their min/max points tracked by the hit tester.
 type rectHitChecker struct{ flow.Node }
 
 func (rectHitChecker) HitTest(p hit.Point) bool {
@@ -154,21 +159,42 @@ func (fcv *FlowchartView) drawCoordsToFlow(x, y float64) hit.Point {
 func (fcv *FlowchartView) onMotionEvent(area *gtk.DrawingArea, event *gdk.Event) {
 	evt := gdk.EventMotionNewFromEvent(event)
 	x, y := evt.MotionVal()
+	rebuildHits := false
 
 	if fcv.pan.dragging {
 		fcv.offsetX = -(fcv.pan.StartX - x)
 		fcv.offsetY = -(fcv.pan.StartY - y)
 	}
+	if fcv.lmc.dragging && fcv.lmc.target != nil {
+		x, y := fcv.lmc.ObjX-(fcv.lmc.StartX-x)/fcv.zoom, fcv.lmc.ObjY-(fcv.lmc.StartY-y)/fcv.zoom
+		fcv.l.MoveNode(fcv.lmc.target.(rectHitChecker).Node.(flow.Node), x, y)
+		rebuildHits = true
+		// TODO: Instead of rebuilding completely, implement scanning the hit tester
+		// to update the single value being moved.
+	}
 
-	tp := fcv.drawCoordsToFlow(x, y)
-	hit := fcv.h.Test(tp)
-	fmt.Println(tp, hit)
+	if rebuildHits {
+		fcv.buildHitTester()
+	}
 	fcv.da.QueueDraw()
 }
 
 func (fcv *FlowchartView) onPressEvent(area *gtk.DrawingArea, event *gdk.Event) {
 	evt := gdk.EventButtonNewFromEvent(event)
 	switch evt.Button() {
+	case 1: // left mouse button.
+		tryClearActive(fcv.lmc.target)
+		fcv.lmc.dragging = true
+		x, y := gdk.EventMotionNewFromEvent(event).MotionVal()
+		fcv.lmc.StartX, fcv.lmc.StartY = x, y
+		tp := fcv.drawCoordsToFlow(x, y)
+		fcv.lmc.target = fcv.h.Test(tp)
+		if fcv.lmc.target != nil {
+			fcv.lmc.ObjX, fcv.lmc.ObjY = fcv.l.Node(fcv.lmc.target.(rectHitChecker).Node.(flow.Node)).Pos()
+			trySetActive(fcv.lmc.target)
+		}
+		fcv.da.QueueDraw()
+
 	case 2, 3: // middle,right button
 		fcv.pan.dragging = true
 		fcv.pan.StartX, fcv.pan.StartY = gdk.EventMotionNewFromEvent(event).MotionVal()
@@ -177,9 +203,44 @@ func (fcv *FlowchartView) onPressEvent(area *gtk.DrawingArea, event *gdk.Event) 
 	}
 }
 
+// activeStateTracker is implemented by any part of the flowchart which can
+// track whether it is selected or not.
+type activeStateTracker interface {
+	SetActive(bool)
+}
+
+func trySetActive(target hit.TestableObj) {
+	switch t := target.(type) {
+	case rectHitChecker:
+		if t, ok := t.Node.(activeStateTracker); ok {
+			t.SetActive(true)
+		}
+	default:
+		if t, ok := target.(activeStateTracker); ok {
+			t.SetActive(true)
+		}
+	}
+}
+
+func tryClearActive(target hit.TestableObj) {
+	switch t := target.(type) {
+	case rectHitChecker:
+		if t, ok := t.Node.(activeStateTracker); ok {
+			t.SetActive(false)
+		}
+	default:
+		if t, ok := target.(activeStateTracker); ok {
+			t.SetActive(false)
+		}
+	}
+}
+
 func (fcv *FlowchartView) onReleaseEvent(area *gtk.DrawingArea, event *gdk.Event) {
 	evt := gdk.EventButtonNewFromEvent(event)
 	switch evt.Button() {
+	case 1:
+		fcv.lmc.dragging = false
+
 	case 2, 3: // middle,right button
 		fcv.pan.dragging = false
 	}

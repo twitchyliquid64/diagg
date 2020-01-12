@@ -5,7 +5,10 @@ type NodeLayout struct {
 	X, Y float64
 }
 
-func (fns NodeLayout) Pos() (float64, float64) {
+func (fns *NodeLayout) Pos() (float64, float64) {
+	if fns == nil {
+		return 0, 0
+	}
 	return fns.X, fns.Y
 }
 
@@ -14,7 +17,10 @@ type PadLayout struct {
 	X, Y float64
 }
 
-func (fps PadLayout) Pos() (float64, float64) {
+func (fps *PadLayout) Pos() (float64, float64) {
+	if fps == nil {
+		return 0, 0
+	}
 	return fps.X, fps.Y
 }
 
@@ -23,8 +29,8 @@ func (fps PadLayout) Pos() (float64, float64) {
 func NewLayout(root Node) *Layout {
 	return &Layout{
 		root:  root,
-		nodes: map[string]NodeLayout{},
-		pads:  map[string]PadLayout{},
+		nodes: map[string]*NodeLayout{},
+		pads:  map[string]*PadLayout{},
 	}
 }
 
@@ -32,11 +38,8 @@ func NewLayout(root Node) *Layout {
 // should be positioned.
 type Layout struct {
 	root  Node
-	nodes map[string]NodeLayout
-	pads  map[string]PadLayout
-
-	// TODO: Keeping track of nodes already drawn is expensive. Maybe we should
-	// compute the right order ahead of time?
+	nodes map[string]*NodeLayout
+	pads  map[string]*PadLayout
 }
 
 type positionable interface {
@@ -89,7 +92,7 @@ const (
 
 type DrawNodeCmd struct {
 	Node   Node
-	Layout NodeLayout
+	Layout *NodeLayout
 }
 
 func (c DrawNodeCmd) DrawObject() DrawObject {
@@ -98,7 +101,7 @@ func (c DrawNodeCmd) DrawObject() DrawObject {
 
 type DrawPadCmd struct {
 	Pad    Pad
-	Layout PadLayout
+	Layout *PadLayout
 }
 
 func (c DrawPadCmd) DrawObject() DrawObject {
@@ -107,6 +110,26 @@ func (c DrawPadCmd) DrawObject() DrawObject {
 
 type DrawCommand interface {
 	DrawObject() DrawObject
+}
+
+func (fl *Layout) MoveNode(n Node, x, y float64) {
+	nID := n.NodeID()
+	if nl, ok := fl.nodes[nID]; ok {
+		nl.X = x
+		nl.Y = y
+	} else {
+		fl.nodes[nID] = &NodeLayout{X: x, Y: y}
+	}
+}
+
+func (fl *Layout) Node(n Node) *NodeLayout {
+	nID := n.NodeID()
+	if nl, ok := fl.nodes[nID]; ok {
+		return nl
+	}
+	nl := &NodeLayout{}
+	fl.nodes[nID] = nl
+	return nl
 }
 
 func (fl *Layout) DisplayList() (min, max [2]float64, dl []DrawCommand, err error) {
@@ -127,7 +150,7 @@ func (fl *Layout) populateDrawList(outList []DrawCommand, n Node, s dlState) ([]
 		return outList, nil
 	}
 	s.renderedNodes[nID] = struct{}{}
-	nl := fl.nodes[nID]
+	nl := fl.Node(n)
 	outList = append(outList, DrawNodeCmd{Node: n, Layout: nl})
 	s.bounds.update(nl, n)
 
