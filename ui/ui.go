@@ -12,12 +12,15 @@ import (
 	"github.com/twitchyliquid64/diagg/ui/flowrender"
 )
 
+type dragState struct {
+	StartX, StartY float64
+	dragging       bool
+}
+
 type FlowchartView struct {
 	da *gtk.DrawingArea
 
-	// TODO: refactor into own type?
-	dragStartX, dragStartY float64
-	dragging               bool
+	pan dragState
 
 	// State of the viewport.
 	offsetX float64
@@ -122,13 +125,15 @@ func (fcv *FlowchartView) onCanvasDrawEvent(da *gtk.DrawingArea, cr *cairo.Conte
 	fcv.draw(da, cr)
 	cr.Restore()
 
-	cr.SetSourceRGB(1, 1, 1)
-	cr.MoveTo(float64(fcv.width-60), float64(fcv.height-22))
-	cr.ShowText(fmt.Sprintf("Zoom: %.2f", fcv.zoom))
-	ps := fmt.Sprintf("Pos: %3.2f, %3.2f", fcv.offsetX, fcv.offsetY)
-	cr.MoveTo(float64(fcv.width)-cr.TextExtents(ps).Width-4, float64(fcv.height-5))
-	cr.ShowText(ps)
+	fcv.writeDebugStr(da, cr, fmt.Sprintf("Zoom: %.2f", fcv.zoom), 1)
+	fcv.writeDebugStr(da, cr, fmt.Sprintf("Pos: %3.2f, %3.2f", fcv.offsetX, fcv.offsetY), 0)
 	return false
+}
+
+func (fcv *FlowchartView) writeDebugStr(da *gtk.DrawingArea, cr *cairo.Context, msg string, row int) {
+	cr.SetSourceRGB(1, 1, 1)
+	cr.MoveTo(float64(fcv.width)-cr.TextExtents(msg).Width-4, float64(fcv.height-5-(20*row)))
+	cr.ShowText(msg)
 }
 
 func (fcv *FlowchartView) draw(da *gtk.DrawingArea, cr *cairo.Context) {
@@ -150,9 +155,9 @@ func (fcv *FlowchartView) onMotionEvent(area *gtk.DrawingArea, event *gdk.Event)
 	evt := gdk.EventMotionNewFromEvent(event)
 	x, y := evt.MotionVal()
 
-	if fcv.dragging {
-		fcv.offsetX = -(fcv.dragStartX - x)
-		fcv.offsetY = -(fcv.dragStartY - y)
+	if fcv.pan.dragging {
+		fcv.offsetX = -(fcv.pan.StartX - x)
+		fcv.offsetY = -(fcv.pan.StartY - y)
 	}
 
 	tp := fcv.drawCoordsToFlow(x, y)
@@ -165,10 +170,10 @@ func (fcv *FlowchartView) onPressEvent(area *gtk.DrawingArea, event *gdk.Event) 
 	evt := gdk.EventButtonNewFromEvent(event)
 	switch evt.Button() {
 	case 2, 3: // middle,right button
-		fcv.dragging = true
-		fcv.dragStartX, fcv.dragStartY = gdk.EventMotionNewFromEvent(event).MotionVal()
-		fcv.dragStartX -= fcv.offsetX
-		fcv.dragStartY -= fcv.offsetY
+		fcv.pan.dragging = true
+		fcv.pan.StartX, fcv.pan.StartY = gdk.EventMotionNewFromEvent(event).MotionVal()
+		fcv.pan.StartX -= fcv.offsetX
+		fcv.pan.StartY -= fcv.offsetY
 	}
 }
 
@@ -176,7 +181,7 @@ func (fcv *FlowchartView) onReleaseEvent(area *gtk.DrawingArea, event *gdk.Event
 	evt := gdk.EventButtonNewFromEvent(event)
 	switch evt.Button() {
 	case 2, 3: // middle,right button
-		fcv.dragging = false
+		fcv.pan.dragging = false
 	}
 }
 
