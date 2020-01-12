@@ -6,10 +6,6 @@ import (
 	"github.com/twitchyliquid64/diagg/flow"
 )
 
-type positionedElement interface {
-	Pos() (float64, float64)
-}
-
 // headlineElement types are elements which have text which should be rendered
 // on  them.
 type headlineElement interface {
@@ -22,25 +18,31 @@ type focusableElement interface {
 	Active() bool
 }
 
+type Node interface {
+	Pos() (float64, float64)
+	Node() flow.Node
+}
+
 // Appearance represents an implementation which can display a flowchart.
 type Appearance interface {
-	DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, n flow.Node, layout positionedElement)
-	DrawPad(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, n flow.Pad, layout positionedElement)
+	DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, n Node)
+	DrawPad(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, n Node)
 }
 
 type BasicRenderer struct{}
 
-func (r *BasicRenderer) isFocused(n flow.Node) bool {
+func (r *BasicRenderer) isFocused(n Node) bool {
 	if fe, ok := n.(focusableElement); ok {
 		return fe.Active()
 	}
 	return false
 }
 
-func (r *BasicRenderer) DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, n flow.Node, layout positionedElement) {
+func (r *BasicRenderer) DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, n Node) {
 	var (
-		x, y        float64 = layout.Pos()
-		w, h        float64 = n.Size()
+		node                = n.Node()
+		x, y        float64 = n.Pos()
+		w, h        float64 = node.Size()
 		hw, hh      float64 = w / 2, h / 2
 		borderWidth float64 = 2
 	)
@@ -55,7 +57,7 @@ func (r *BasicRenderer) DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animSte
 	cr.SetSourceRGB(0.5, 0.1, 0.1)
 	cr.Fill()
 
-	if hln, ok := n.(headlineElement); ok {
+	if hln, ok := node.(headlineElement); ok {
 		cr.MoveTo(x-hw+7, y-hh+18)
 		cr.SetSourceRGB(1, 1, 1)
 		cr.SetFontSize(16)
@@ -64,6 +66,6 @@ func (r *BasicRenderer) DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animSte
 	}
 }
 
-func (r *BasicRenderer) DrawPad(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, n flow.Pad, layout positionedElement) {
+func (r *BasicRenderer) DrawPad(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, n Node) {
 
 }

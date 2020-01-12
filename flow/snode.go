@@ -3,17 +3,6 @@ package flow
 type SNode struct {
 	Headline string
 	id       string
-
-	// UI-relevant fields.
-	active bool
-}
-
-func (sn *SNode) SetActive(a bool) {
-	sn.active = a
-}
-
-func (sn *SNode) Active() bool {
-	return sn.active
 }
 
 func (sn *SNode) NodeID() string {

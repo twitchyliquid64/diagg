@@ -33,22 +33,18 @@ type FlowchartView struct {
 	// width/height of the drawing area.
 	width, height int
 
-	// State related to the loaded flowchart.
-	nMin, nMax  hit.Point
-	l           *flow.Layout
-	r           flowrender.Appearance
-	h           *hit.Area
-	displayList []flow.DrawCommand
+	model Model
 }
 
 func NewFlowchartView(l *flow.Layout) (*FlowchartView, *gtk.DrawingArea, error) {
 	var err error
 	fcv := &FlowchartView{
-		offsetX: 30,
-		offsetY: 30,
-		zoom:    1,
-		l:       l,
-		r:       &flowrender.BasicRenderer{},
+		zoom: 1,
+		model: Model{
+			l:         l,
+			r:         &flowrender.BasicRenderer{},
+			nodeState: map[string]*rectNode{},
+		},
 	}
 
 	if fcv.da, err = gtk.DrawingAreaNew(); err != nil {
@@ -70,44 +66,11 @@ func NewFlowchartView(l *flow.Layout) (*FlowchartView, *gtk.DrawingArea, error) 
 		gdk.BUTTON_RELEASE_MASK |
 		gdk.SCROLL_MASK)) // GDK_MOTION_NOTIFY
 
-	err = fcv.initRenderState()
+	err = fcv.model.initRenderState()
 
 	// Set initial offsets so the left-top side is in full view.
-	fcv.offsetX, fcv.offsetY = -fcv.nMin.X+30, -fcv.nMin.Y+30
+	fcv.offsetX, fcv.offsetY = -fcv.model.nMin.X+30, -fcv.model.nMin.Y+30
 	return fcv, fcv.da, err
-}
-
-func (fcv *FlowchartView) initRenderState() (err error) {
-	var min, max [2]float64
-	if min, max, fcv.displayList, err = fcv.l.DisplayList(); err != nil {
-		return err
-	}
-	fcv.nMin, fcv.nMax = hit.Point{X: min[0], Y: min[1]}, hit.Point{X: max[0], Y: max[1]}
-	fcv.buildHitTester()
-	return nil
-}
-
-// rectHitChecker returns true as rectangles should be completely represented
-// by their min/max points tracked by the hit tester.
-type rectHitChecker struct{ flow.Node }
-
-func (rectHitChecker) HitTest(p hit.Point) bool {
-	return true
-}
-
-func (fcv *FlowchartView) buildHitTester() {
-	fcv.h = hit.NewArea(fcv.nMin, fcv.nMax)
-	for _, cmd := range fcv.displayList {
-		switch c := cmd.(type) {
-		case flow.DrawNodeCmd:
-			x, y := c.Layout.Pos()
-			w, h := c.Node.Size()
-			min, max := hit.Point{X: x - w/2, Y: y - h/2}, hit.Point{X: x + w/2, Y: y + h/2}
-			fcv.h.Add(min, max, rectHitChecker{c.Node})
-		case flow.DrawPadCmd:
-			panic("not implemented")
-		}
-	}
 }
 
 func (fcv *FlowchartView) onCanvasConfigureEvent(da *gtk.DrawingArea, event *gdk.Event) bool {
@@ -142,14 +105,7 @@ func (fcv *FlowchartView) writeDebugStr(da *gtk.DrawingArea, cr *cairo.Context, 
 }
 
 func (fcv *FlowchartView) draw(da *gtk.DrawingArea, cr *cairo.Context) {
-	for _, cmd := range fcv.displayList {
-		switch c := cmd.(type) {
-		case flow.DrawNodeCmd:
-			fcv.r.DrawNode(da, cr, 0, c.Node, c.Layout)
-		case flow.DrawPadCmd:
-			fcv.r.DrawPad(da, cr, 0, c.Pad, c.Layout)
-		}
-	}
+	fcv.model.Draw(da, cr)
 }
 
 func (fcv *FlowchartView) drawCoordsToFlow(x, y float64) hit.Point {
@@ -167,14 +123,14 @@ func (fcv *FlowchartView) onMotionEvent(area *gtk.DrawingArea, event *gdk.Event)
 	}
 	if fcv.lmc.dragging && fcv.lmc.target != nil {
 		x, y := fcv.lmc.ObjX-(fcv.lmc.StartX-x)/fcv.zoom, fcv.lmc.ObjY-(fcv.lmc.StartY-y)/fcv.zoom
-		fcv.l.MoveNode(fcv.lmc.target.(rectHitChecker).Node.(flow.Node), x, y)
+		fcv.model.MoveTarget(fcv.lmc.target, x, y)
 		rebuildHits = true
 		// TODO: Instead of rebuilding completely, implement scanning the hit tester
 		// to update the single value being moved.
 	}
 
 	if rebuildHits {
-		fcv.buildHitTester()
+		fcv.model.buildHitTester()
 	}
 	fcv.da.QueueDraw()
 }
@@ -183,15 +139,15 @@ func (fcv *FlowchartView) onPressEvent(area *gtk.DrawingArea, event *gdk.Event) 
 	evt := gdk.EventButtonNewFromEvent(event)
 	switch evt.Button() {
 	case 1: // left mouse button.
-		tryClearActive(fcv.lmc.target)
+		fcv.model.SetTargetActive(fcv.lmc.target, false)
 		fcv.lmc.dragging = true
 		x, y := gdk.EventMotionNewFromEvent(event).MotionVal()
 		fcv.lmc.StartX, fcv.lmc.StartY = x, y
 		tp := fcv.drawCoordsToFlow(x, y)
-		fcv.lmc.target = fcv.h.Test(tp)
+		fcv.lmc.target = fcv.model.h.Test(tp)
 		if fcv.lmc.target != nil {
-			fcv.lmc.ObjX, fcv.lmc.ObjY = fcv.l.Node(fcv.lmc.target.(rectHitChecker).Node.(flow.Node)).Pos()
-			trySetActive(fcv.lmc.target)
+			fcv.lmc.ObjX, fcv.lmc.ObjY = fcv.model.TargetPos(fcv.lmc.target)
+			fcv.model.SetTargetActive(fcv.lmc.target, true)
 		}
 		fcv.da.QueueDraw()
 
@@ -203,44 +159,11 @@ func (fcv *FlowchartView) onPressEvent(area *gtk.DrawingArea, event *gdk.Event) 
 	}
 }
 
-// activeStateTracker is implemented by any part of the flowchart which can
-// track whether it is selected or not.
-type activeStateTracker interface {
-	SetActive(bool)
-}
-
-func trySetActive(target hit.TestableObj) {
-	switch t := target.(type) {
-	case rectHitChecker:
-		if t, ok := t.Node.(activeStateTracker); ok {
-			t.SetActive(true)
-		}
-	default:
-		if t, ok := target.(activeStateTracker); ok {
-			t.SetActive(true)
-		}
-	}
-}
-
-func tryClearActive(target hit.TestableObj) {
-	switch t := target.(type) {
-	case rectHitChecker:
-		if t, ok := t.Node.(activeStateTracker); ok {
-			t.SetActive(false)
-		}
-	default:
-		if t, ok := target.(activeStateTracker); ok {
-			t.SetActive(false)
-		}
-	}
-}
-
 func (fcv *FlowchartView) onReleaseEvent(area *gtk.DrawingArea, event *gdk.Event) {
 	evt := gdk.EventButtonNewFromEvent(event)
 	switch evt.Button() {
 	case 1:
 		fcv.lmc.dragging = false
-
 	case 2, 3: // middle,right button
 		fcv.pan.dragging = false
 	}
