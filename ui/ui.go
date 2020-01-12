@@ -73,10 +73,33 @@ func NewFlowchartView(l *flow.Layout) (*FlowchartView, *gtk.DrawingArea, error) 
 
 func (fcv *FlowchartView) initRenderState() (err error) {
 	var min, max [2]float64
-	min, max, fcv.displayList, err = fcv.l.DisplayList()
+	if min, max, fcv.displayList, err = fcv.l.DisplayList(); err != nil {
+		return err
+	}
 	fcv.nMin, fcv.nMax = hit.Point{X: min[0], Y: min[1]}, hit.Point{X: max[0], Y: max[1]}
+	fcv.buildHitTester()
+	return nil
+}
+
+type rectHitChecker struct{ flow.Node }
+
+func (rectHitChecker) HitTest(p hit.Point) bool {
+	return true
+}
+
+func (fcv *FlowchartView) buildHitTester() {
 	fcv.h = hit.NewArea(fcv.nMin, fcv.nMax)
-	return err
+	for _, cmd := range fcv.displayList {
+		switch c := cmd.(type) {
+		case flow.DrawNodeCmd:
+			x, y := c.Layout.Pos()
+			w, h := c.Node.Size()
+			min, max := hit.Point{X: x - w/2, Y: y - h/2}, hit.Point{X: x + w/2, Y: y + h/2}
+			fcv.h.Add(min, max, rectHitChecker{c.Node})
+		case flow.DrawPadCmd:
+			panic("not implemented")
+		}
+	}
 }
 
 func (fcv *FlowchartView) onCanvasConfigureEvent(da *gtk.DrawingArea, event *gdk.Event) bool {
@@ -119,6 +142,10 @@ func (fcv *FlowchartView) draw(da *gtk.DrawingArea, cr *cairo.Context) {
 	}
 }
 
+func (fcv *FlowchartView) drawCoordsToFlow(x, y float64) hit.Point {
+	return hit.Point{X: (x - fcv.offsetX) / fcv.zoom, Y: (y - fcv.offsetY) / fcv.zoom}
+}
+
 func (fcv *FlowchartView) onMotionEvent(area *gtk.DrawingArea, event *gdk.Event) {
 	evt := gdk.EventMotionNewFromEvent(event)
 	x, y := evt.MotionVal()
@@ -128,9 +155,9 @@ func (fcv *FlowchartView) onMotionEvent(area *gtk.DrawingArea, event *gdk.Event)
 		fcv.offsetY = -(fcv.dragStartY - y)
 	}
 
-	// tp := hit.Point{X: x - fcv.offsetX, Y: y - fcv.offsetY}
-	// hit := fcv.h.Test(tp)
-	// fmt.Println(tp, hit)
+	tp := fcv.drawCoordsToFlow(x, y)
+	hit := fcv.h.Test(tp)
+	fmt.Println(tp, hit)
 	fcv.da.QueueDraw()
 }
 
