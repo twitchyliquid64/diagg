@@ -43,7 +43,7 @@ func NewFlowchartView(l *flow.Layout) (*FlowchartView, *gtk.DrawingArea, error) 
 		model: Model{
 			l:         l,
 			r:         &flowrender.BasicRenderer{},
-			nodeState: map[string]*rectNode{},
+			nodeState: map[string]modelNode{},
 		},
 	}
 
@@ -90,7 +90,7 @@ func (fcv *FlowchartView) onCanvasDrawEvent(da *gtk.DrawingArea, cr *cairo.Conte
 	if fcv.zoom > 0 {
 		cr.Scale(fcv.zoom, fcv.zoom)
 	}
-	fcv.draw(da, cr)
+	fcv.model.Draw(da, cr)
 	cr.Restore()
 
 	fcv.writeDebugStr(da, cr, fmt.Sprintf("Zoom: %.2f", fcv.zoom), 1)
@@ -102,10 +102,6 @@ func (fcv *FlowchartView) writeDebugStr(da *gtk.DrawingArea, cr *cairo.Context, 
 	cr.SetSourceRGB(1, 1, 1)
 	cr.MoveTo(float64(fcv.width)-cr.TextExtents(msg).Width-4, float64(fcv.height-5-(20*row)))
 	cr.ShowText(msg)
-}
-
-func (fcv *FlowchartView) draw(da *gtk.DrawingArea, cr *cairo.Context) {
-	fcv.model.Draw(da, cr)
 }
 
 func (fcv *FlowchartView) drawCoordsToFlow(x, y float64) hit.Point {
@@ -137,15 +133,15 @@ func (fcv *FlowchartView) onMotionEvent(area *gtk.DrawingArea, event *gdk.Event)
 
 func (fcv *FlowchartView) onPressEvent(area *gtk.DrawingArea, event *gdk.Event) {
 	evt := gdk.EventButtonNewFromEvent(event)
+	x, y := gdk.EventMotionNewFromEvent(event).MotionVal()
 	switch evt.Button() {
 	case 1: // left mouse button.
 		fcv.model.SetTargetActive(fcv.lmc.target, false)
 		fcv.lmc.dragging = true
-		x, y := gdk.EventMotionNewFromEvent(event).MotionVal()
 		fcv.lmc.StartX, fcv.lmc.StartY = x, y
 		tp := fcv.drawCoordsToFlow(x, y)
-		fcv.lmc.target = fcv.model.h.Test(tp)
-		if fcv.lmc.target != nil {
+
+		if fcv.lmc.target = fcv.model.h.Test(tp); fcv.lmc.target != nil {
 			fcv.lmc.ObjX, fcv.lmc.ObjY = fcv.model.TargetPos(fcv.lmc.target)
 			fcv.model.SetTargetActive(fcv.lmc.target, true)
 		}
@@ -153,9 +149,7 @@ func (fcv *FlowchartView) onPressEvent(area *gtk.DrawingArea, event *gdk.Event) 
 
 	case 2, 3: // middle,right button
 		fcv.pan.dragging = true
-		fcv.pan.StartX, fcv.pan.StartY = gdk.EventMotionNewFromEvent(event).MotionVal()
-		fcv.pan.StartX -= fcv.offsetX
-		fcv.pan.StartY -= fcv.offsetY
+		fcv.pan.StartX, fcv.pan.StartY = x-fcv.offsetX, y-fcv.offsetY
 	}
 }
 

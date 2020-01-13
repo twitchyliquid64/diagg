@@ -132,6 +132,26 @@ func (fl *Layout) Node(n Node) *NodeLayout {
 	return nl
 }
 
+func (fl *Layout) MovePad(p Pad, x, y float64) {
+	pID := p.PadID()
+	if pl, ok := fl.pads[pID]; ok {
+		pl.X = x
+		pl.Y = y
+	} else {
+		fl.pads[pID] = &PadLayout{X: x, Y: y}
+	}
+}
+
+func (fl *Layout) Pad(p Pad) *PadLayout {
+	pID := p.PadID()
+	if pl, ok := fl.pads[pID]; ok {
+		return pl
+	}
+	pl := &PadLayout{}
+	fl.pads[pID] = pl
+	return pl
+}
+
 func (fl *Layout) DisplayList() (min, max [2]float64, dl []DrawCommand, err error) {
 	b := &bounds{}
 	b.update(fl.nodes[fl.root.NodeID()], fl.root)

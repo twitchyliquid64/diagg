@@ -1,6 +1,8 @@
 package flowrender
 
 import (
+	"math"
+
 	"github.com/gotk3/gotk3/cairo"
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/twitchyliquid64/diagg/flow"
@@ -23,15 +25,20 @@ type Node interface {
 	Node() flow.Node
 }
 
+type Pad interface {
+	Pos() (float64, float64)
+	Pad() flow.Pad
+}
+
 // Appearance represents an implementation which can display a flowchart.
 type Appearance interface {
 	DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, n Node)
-	DrawPad(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, n Node)
+	DrawPad(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, p Pad)
 }
 
 type BasicRenderer struct{}
 
-func (r *BasicRenderer) isFocused(n Node) bool {
+func (r *BasicRenderer) isFocused(n interface{}) bool {
 	if fe, ok := n.(focusableElement); ok {
 		return fe.Active()
 	}
@@ -40,11 +47,11 @@ func (r *BasicRenderer) isFocused(n Node) bool {
 
 func (r *BasicRenderer) DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, n Node) {
 	var (
-		node                = n.Node()
-		x, y        float64 = n.Pos()
-		w, h        float64 = node.Size()
-		hw, hh      float64 = w / 2, h / 2
-		borderWidth float64 = 2
+		node                     = n.Node()
+		x, y             float64 = n.Pos()
+		w, h             float64 = node.Size()
+		hw, hh           float64 = w / 2, h / 2
+		sub, borderWidth float64 = 2, 2
 	)
 	if r.isFocused(n) {
 		borderWidth = 6
@@ -52,7 +59,7 @@ func (r *BasicRenderer) DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animSte
 
 	cr.SetSourceRGB(1, 1, 1)
 	cr.SetLineWidth(borderWidth)
-	roundedRect(da, cr, x-hw, y-hh, w, h, 2)
+	roundedRect(da, cr, x-hw, y-hh, w-sub, h-sub, 2)
 	cr.StrokePreserve()
 	cr.SetSourceRGB(0.5, 0.1, 0.1)
 	cr.Fill()
@@ -66,6 +73,20 @@ func (r *BasicRenderer) DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animSte
 	}
 }
 
-func (r *BasicRenderer) DrawPad(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, n Node) {
+func (r *BasicRenderer) DrawPad(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, p Pad) {
+	var (
+		pad                 = p.Pad()
+		x, y        float64 = p.Pos()
+		dia, _      float64 = pad.Size()
+		borderWidth float64 = 2
+	)
+	if r.isFocused(pad) {
+		borderWidth = 6
+	}
 
+	cr.NewPath()
+	cr.SetLineWidth(borderWidth)
+	cr.Arc(x, y, dia/2-borderWidth, -math.Pi/2, math.Pi/2)
+	cr.ClosePath()
+	cr.Stroke()
 }

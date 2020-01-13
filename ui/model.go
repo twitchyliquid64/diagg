@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"math"
+
 	"github.com/gotk3/gotk3/cairo"
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/twitchyliquid64/diagg/flow"
@@ -21,12 +23,19 @@ type Model struct {
 	// Latest display list to use for renders.
 	displayList []flow.DrawCommand
 	// Maps node/pad ID to state.
-	// TODO: Abstract value type to interface.
-	nodeState map[string]*rectNode
+	nodeState map[string]modelNode
 }
 
-// rectNode represents both the flowchart and layout information for
-// a rectangular node in the flowchart.
+// modelNode represents an element which is part of the flowchart,
+// which has both floatchart, positioning, and UI state.
+type modelNode interface {
+	Pos() (float64, float64)
+	Active() bool
+	HitTest(hit.Point) bool
+}
+
+// rectNode represents flowchart, layout, and UI state information
+// for a rectangular node in the flowchart.
 type rectNode struct {
 	N      flow.Node
 	Layout *flow.NodeLayout
@@ -43,6 +52,29 @@ func (n rectNode) Active() bool { return n.active }
 // by their min/max points tracked by the hit tester.
 func (rectNode) HitTest(p hit.Point) bool {
 	return true
+}
+
+// circPad represents flowchart, layout, and UI state information
+// for a circular pad in the flowchart.
+type circPad struct {
+	P      flow.Pad
+	Layout *flow.PadLayout
+	active bool
+}
+
+func (p circPad) Pos() (float64, float64) { return p.Layout.Pos() }
+
+func (p circPad) Pad() flow.Pad { return p.P }
+
+func (p circPad) Active() bool { return p.active }
+
+// HitTest returns true as rectangles should be completely represented
+// by their min/max points tracked by the hit tester.
+func (p circPad) HitTest(tp hit.Point) bool {
+	centerX, centerY := p.Pos()
+	distSq := math.Pow(tp.X-centerX, 2) + math.Pow(tp.Y-centerY, 2)
+	dia, _ := p.Pad().Size()
+	return distSq < (dia / 2)
 }
 
 func (m *Model) maybeUpdateMinMax(x, y float64) {
@@ -63,6 +95,9 @@ func (m *Model) MoveTarget(t hit.TestableObj, x, y float64) {
 	case *rectNode:
 		m.maybeUpdateMinMax(x, y)
 		m.l.MoveNode(t.N.(flow.Node), x, y)
+	case *circPad:
+		m.maybeUpdateMinMax(x, y)
+		m.l.MovePad(t.P.(flow.Pad), x, y)
 	default:
 		panic("cannot handle type")
 	}
@@ -72,6 +107,8 @@ func (m *Model) TargetPos(t hit.TestableObj) (x, y float64) {
 	switch t := t.(type) {
 	case *rectNode:
 		return m.l.Node(t.N.(flow.Node)).Pos()
+	case *circPad:
+		return m.l.Pad(t.P.(flow.Pad)).Pos()
 	default:
 		panic("cannot handle type")
 	}
@@ -93,19 +130,35 @@ func (m *Model) buildHitTester() {
 	for _, cmd := range m.displayList {
 		switch c := cmd.(type) {
 		case flow.DrawNodeCmd:
-			x, y := c.Layout.Pos()
-			w, h := c.Node.Size()
-			min, max := hit.Point{X: x - w/2, Y: y - h/2}, hit.Point{X: x + w/2, Y: y + h/2}
+			var (
+				x, y     = c.Layout.Pos()
+				w, h     = c.Node.Size()
+				min, max = hit.Point{X: x - w/2, Y: y - h/2}, hit.Point{X: x + w/2, Y: y + h/2}
+				nID      = c.Node.NodeID()
+			)
 
-			sn, ok := m.nodeState[c.Node.NodeID()]
+			sn, ok := m.nodeState[nID]
 			if !ok {
 				sn = &rectNode{N: c.Node, Layout: c.Layout}
-				m.nodeState[c.Node.NodeID()] = sn
+				m.nodeState[nID] = sn
 			}
 			m.h.Add(min, max, sn)
 
 		case flow.DrawPadCmd:
-			panic("not implemented")
+			var (
+				x, y     = c.Layout.Pos()
+				dia, _   = c.Pad.Size()
+				min, max = hit.Point{X: x - dia/2, Y: y - dia/2}, hit.Point{X: x + dia/2, Y: y + dia/2}
+				pID      = c.Pad.PadID()
+			)
+
+			sn, ok := m.nodeState[pID]
+			if !ok {
+				sn = &circPad{P: c.Pad, Layout: c.Layout}
+				m.nodeState[pID] = sn
+			}
+			m.h.Add(min, max, sn)
+
 		}
 	}
 }
@@ -114,9 +167,9 @@ func (m *Model) Draw(da *gtk.DrawingArea, cr *cairo.Context) {
 	for _, cmd := range m.displayList {
 		switch c := cmd.(type) {
 		case flow.DrawNodeCmd:
-			m.r.DrawNode(da, cr, 0, m.nodeState[c.Node.NodeID()])
+			m.r.DrawNode(da, cr, 0, m.nodeState[c.Node.NodeID()].(*rectNode))
 		case flow.DrawPadCmd:
-			m.r.DrawPad(da, cr, 0, m.nodeState[c.Pad.PadID()])
+			m.r.DrawPad(da, cr, 0, m.nodeState[c.Pad.PadID()].(*circPad))
 		}
 	}
 }
@@ -125,6 +178,8 @@ func (m *Model) SetTargetActive(target hit.TestableObj, a bool) {
 	switch t := target.(type) {
 	case nil:
 	case *rectNode:
+		t.active = a
+	case *circPad:
 		t.active = a
 	default:
 		panic("type not handled")
