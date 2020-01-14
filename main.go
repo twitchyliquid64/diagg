@@ -36,7 +36,9 @@ func (w *Win) build() error {
 		return err
 	}
 
-	l := flow.NewLayout(flow.NewSNode("test node", ""))
+	root := flow.NewSNode("test node", "")
+	root.AppendPad("test", flow.SideRight, 0)
+	l := flow.NewLayout(root)
 	fcv, fcvRoot, err := ui.NewFlowchartView(l)
 	if err != nil {
 		return err

@@ -74,7 +74,7 @@ func (p circPad) HitTest(tp hit.Point) bool {
 	centerX, centerY := p.Pos()
 	distSq := math.Pow(tp.X-centerX, 2) + math.Pow(tp.Y-centerY, 2)
 	dia, _ := p.Pad().Size()
-	return distSq < (dia / 2)
+	return distSq < math.Pow(dia/2, 2)
 }
 
 func (m *Model) maybeUpdateMinMax(x, y float64) {
@@ -96,8 +96,7 @@ func (m *Model) MoveTarget(t hit.TestableObj, x, y float64) {
 		m.maybeUpdateMinMax(x, y)
 		m.l.MoveNode(t.N.(flow.Node), x, y)
 	case *circPad:
-		m.maybeUpdateMinMax(x, y)
-		m.l.MovePad(t.P.(flow.Pad), x, y)
+		// Not possible to move a pad.
 	default:
 		panic("cannot handle type")
 	}

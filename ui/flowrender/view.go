@@ -75,18 +75,18 @@ func (r *BasicRenderer) DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animSte
 
 func (r *BasicRenderer) DrawPad(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, p Pad) {
 	var (
-		pad                 = p.Pad()
-		x, y        float64 = p.Pos()
-		dia, _      float64 = pad.Size()
-		borderWidth float64 = 2
+		pad                      = p.Pad()
+		x, y             float64 = p.Pos()
+		dia, _           float64 = pad.Size()
+		sub, borderWidth float64 = 1.5, 3
 	)
-	if r.isFocused(pad) {
+	if r.isFocused(p) {
 		borderWidth = 6
 	}
 
 	cr.NewPath()
 	cr.SetLineWidth(borderWidth)
-	cr.Arc(x, y, dia/2-borderWidth, -math.Pi/2, math.Pi/2)
+	cr.Arc(x, y, dia/2-sub, -math.Pi, math.Pi)
 	cr.ClosePath()
 	cr.Stroke()
 }

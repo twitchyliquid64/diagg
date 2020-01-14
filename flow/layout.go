@@ -120,6 +120,11 @@ func (fl *Layout) MoveNode(n Node, x, y float64) {
 	} else {
 		fl.nodes[nID] = &NodeLayout{X: x, Y: y}
 	}
+
+	// As pad position is dependent on node position, force recomputation.
+	for _, p := range n.Pads() {
+		fl.padPosRecompute(p)
+	}
 }
 
 func (fl *Layout) Node(n Node) *NodeLayout {
@@ -132,14 +137,31 @@ func (fl *Layout) Node(n Node) *NodeLayout {
 	return nl
 }
 
-func (fl *Layout) MovePad(p Pad, x, y float64) {
-	pID := p.PadID()
-	if pl, ok := fl.pads[pID]; ok {
-		pl.X = x
-		pl.Y = y
-	} else {
-		fl.pads[pID] = &PadLayout{X: x, Y: y}
+func (fl *Layout) padPosRecompute(p Pad) *PadLayout {
+	var (
+		side, sideAmt = p.Positioning()
+		parentLayout  = fl.Node(p.Parent())
+		w, h          = p.Parent().Size()
+		pID           = p.PadID()
+		pl            = fl.pads[pID]
+	)
+	if pl == nil {
+		pl = &PadLayout{}
 	}
+
+	switch side {
+	case SideRight:
+		pl.X, pl.Y = parentLayout.X+w/2, parentLayout.Y+h*sideAmt/2
+	case SideLeft:
+		pl.X, pl.Y = parentLayout.X-w/2, parentLayout.Y+h*sideAmt/2
+	case SideBottom:
+		pl.X, pl.Y = parentLayout.X+w*sideAmt/2, parentLayout.Y+h/2
+	case SideTop:
+		pl.X, pl.Y = parentLayout.X+w*sideAmt/2, parentLayout.Y-h/2
+	}
+
+	fl.pads[pID] = pl
+	return pl
 }
 
 func (fl *Layout) Pad(p Pad) *PadLayout {
@@ -147,9 +169,7 @@ func (fl *Layout) Pad(p Pad) *PadLayout {
 	if pl, ok := fl.pads[pID]; ok {
 		return pl
 	}
-	pl := &PadLayout{}
-	fl.pads[pID] = pl
-	return pl
+	return fl.padPosRecompute(p)
 }
 
 func (fl *Layout) DisplayList() (min, max [2]float64, dl []DrawCommand, err error) {
@@ -157,8 +177,8 @@ func (fl *Layout) DisplayList() (min, max [2]float64, dl []DrawCommand, err erro
 	b.update(fl.nodes[fl.root.NodeID()], fl.root)
 
 	dl, err = fl.populateDrawList(make([]DrawCommand, 0, 256), fl.root, dlState{
-		renderedNodes: make(map[string]struct{}, len(fl.nodes)),
-		renderedPads:  make(map[string]struct{}, len(fl.pads)),
+		renderedNodes: make(map[string]struct{}, 32+len(fl.nodes)),
+		renderedPads:  make(map[string]struct{}, 32+len(fl.pads)),
 		bounds:        b,
 	})
 	return [2]float64{b.minX, b.minY}, [2]float64{b.maxY, b.maxY}, dl, err
@@ -180,7 +200,7 @@ func (fl *Layout) populateDrawList(outList []DrawCommand, n Node, s dlState) ([]
 			continue
 		}
 		s.renderedPads[pID] = struct{}{}
-		pl := fl.pads[pID]
+		pl := fl.Pad(p)
 		outList = append(outList, DrawPadCmd{Pad: p, Layout: pl})
 		s.bounds.update(pl, p)
 	}
