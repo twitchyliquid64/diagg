@@ -84,6 +84,7 @@ func (fcv *FlowchartView) onCanvasDrawEvent(da *gtk.DrawingArea, cr *cairo.Conte
 	cr.SetSourceRGB(0.12, 0.12, 0.12)
 	cr.Paint()
 	cr.SetLineWidth(5)
+	cr.SetFillRule(cairo.FILL_RULE_EVEN_ODD)
 
 	cr.Save()
 	cr.Translate(fcv.offsetX, fcv.offsetY)
