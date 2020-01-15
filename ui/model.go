@@ -2,6 +2,7 @@ package ui
 
 import (
 	"math"
+	"time"
 
 	"github.com/gotk3/gotk3/cairo"
 	"github.com/gotk3/gotk3/gtk"
@@ -24,6 +25,10 @@ type Model struct {
 	displayList []flow.DrawCommand
 	// Maps node/pad ID to state.
 	nodeState map[string]modelNode
+
+	// performance metrics
+	drawTime  averageMetric
+	mkHitTime averageMetric
 }
 
 // modelNode represents an element which is part of the flowchart,
@@ -125,6 +130,7 @@ func (m *Model) initRenderState() (err error) {
 }
 
 func (m *Model) buildHitTester() {
+	started := time.Now()
 	m.h = hit.NewArea(m.nMin, m.nMax)
 	for _, cmd := range m.displayList {
 		switch c := cmd.(type) {
@@ -160,9 +166,11 @@ func (m *Model) buildHitTester() {
 
 		}
 	}
+	m.mkHitTime.Time(started)
 }
 
 func (m *Model) Draw(da *gtk.DrawingArea, cr *cairo.Context) {
+	started := time.Now()
 	for _, cmd := range m.displayList {
 		switch c := cmd.(type) {
 		case flow.DrawNodeCmd:
@@ -171,6 +179,7 @@ func (m *Model) Draw(da *gtk.DrawingArea, cr *cairo.Context) {
 			m.r.DrawPad(da, cr, 0, m.nodeState[c.Pad.PadID()].(*circPad))
 		}
 	}
+	m.drawTime.Time(started)
 }
 
 func (m *Model) SetTargetActive(target hit.TestableObj, a bool) {

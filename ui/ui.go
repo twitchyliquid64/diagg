@@ -47,6 +47,8 @@ func NewFlowchartView(l *flow.Layout) (*FlowchartView, *gtk.DrawingArea, error) 
 			l:         l,
 			r:         &flowrender.BasicRenderer{},
 			nodeState: map[string]modelNode{},
+			drawTime:  averageMetric{Name: "draw time"},
+			mkHitTime: averageMetric{Name: "hit build time"},
 		},
 	}
 
@@ -102,8 +104,10 @@ func (fcv *FlowchartView) onCanvasDrawEvent(da *gtk.DrawingArea, cr *cairo.Conte
 	}
 	cr.Restore()
 
-	fcv.writeDebugStr(da, cr, fmt.Sprintf("Zoom: %.2f", fcv.zoom), 1)
-	fcv.writeDebugStr(da, cr, fmt.Sprintf("Pos: %3.2f, %3.2f", fcv.offsetX, fcv.offsetY), 0)
+	fcv.writeDebugStr(da, cr, fmt.Sprintf("Zoom: %.2f", fcv.zoom), 3)
+	fcv.writeDebugStr(da, cr, fmt.Sprintf("Pos: %3.2f, %3.2f", fcv.offsetX, fcv.offsetY), 2)
+	fcv.writeDebugStr(da, cr, fmt.Sprintf("%s: %s", fcv.model.drawTime.Metric(), fcv.model.drawTime.Compute()), 1)
+	fcv.writeDebugStr(da, cr, fmt.Sprintf("%s: %s", fcv.model.mkHitTime.Metric(), fcv.model.mkHitTime.Compute()), 0)
 	return false
 }
 
