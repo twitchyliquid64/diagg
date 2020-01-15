@@ -14,9 +14,12 @@ import (
 
 type dragState struct {
 	StartX, StartY float64
-	ObjX, ObjY     float64
+	DragX, DragY   float64
 	dragging       bool
-	target         hit.TestableObj // only valid for left-mouse-click.
+
+	// only valid for left-mouse-click.
+	ObjX, ObjY float64
+	target     hit.TestableObj
 }
 
 type FlowchartView struct {
@@ -92,11 +95,25 @@ func (fcv *FlowchartView) onCanvasDrawEvent(da *gtk.DrawingArea, cr *cairo.Conte
 		cr.Scale(fcv.zoom, fcv.zoom)
 	}
 	fcv.model.Draw(da, cr)
+	if fcv.lmc.dragging {
+		if rn, ok := fcv.lmc.target.(*circPad); ok {
+			fcv.drawDragLink(da, cr, rn)
+		}
+	}
 	cr.Restore()
 
 	fcv.writeDebugStr(da, cr, fmt.Sprintf("Zoom: %.2f", fcv.zoom), 1)
 	fcv.writeDebugStr(da, cr, fmt.Sprintf("Pos: %3.2f, %3.2f", fcv.offsetX, fcv.offsetY), 0)
 	return false
+}
+
+func (fcv *FlowchartView) drawDragLink(da *gtk.DrawingArea, cr *cairo.Context, startPad *circPad) {
+	x, y := startPad.Pos()
+	cr.SetLineWidth(2)
+	cr.SetSourceRGB(1, 1, 1)
+	cr.MoveTo(x, y)
+	cr.LineTo(fcv.lmc.DragX, fcv.lmc.DragY)
+	cr.Stroke()
 }
 
 func (fcv *FlowchartView) writeDebugStr(da *gtk.DrawingArea, cr *cairo.Context, msg string, row int) {
@@ -121,6 +138,7 @@ func (fcv *FlowchartView) onMotionEvent(area *gtk.DrawingArea, event *gdk.Event)
 	if fcv.lmc.dragging && fcv.lmc.target != nil {
 		x, y := fcv.lmc.ObjX-(fcv.lmc.StartX-x)/fcv.zoom, fcv.lmc.ObjY-(fcv.lmc.StartY-y)/fcv.zoom
 		fcv.model.MoveTarget(fcv.lmc.target, x, y)
+		fcv.lmc.DragX, fcv.lmc.DragY = x, y
 		rebuildHits = true
 		// TODO: Instead of rebuilding completely, implement scanning the hit tester
 		// to update the single value being moved.
@@ -144,6 +162,7 @@ func (fcv *FlowchartView) onPressEvent(area *gtk.DrawingArea, event *gdk.Event) 
 
 		if fcv.lmc.target = fcv.model.h.Test(tp); fcv.lmc.target != nil {
 			fcv.lmc.ObjX, fcv.lmc.ObjY = fcv.model.TargetPos(fcv.lmc.target)
+			fcv.lmc.DragX, fcv.lmc.DragY = fcv.lmc.ObjX, fcv.lmc.ObjY
 			fcv.model.SetTargetActive(fcv.lmc.target, true)
 		}
 		fcv.da.QueueDraw()
@@ -159,6 +178,7 @@ func (fcv *FlowchartView) onReleaseEvent(area *gtk.DrawingArea, event *gdk.Event
 	switch evt.Button() {
 	case 1:
 		fcv.lmc.dragging = false
+		fcv.da.QueueDraw()
 	case 2, 3: // middle,right button
 		fcv.pan.dragging = false
 	}
