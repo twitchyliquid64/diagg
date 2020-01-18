@@ -143,6 +143,7 @@ func (fcv *FlowchartView) onPressEvent(area *gtk.DrawingArea, event *gdk.Event) 
 			fcv.lmc.DragX, fcv.lmc.DragY = fcv.lmc.ObjX, fcv.lmc.ObjY
 			fcv.model.SetTargetActive(fcv.lmc.target, true)
 		}
+		fcv.da.Emit("flow-selection")
 		fcv.da.QueueDraw()
 
 	case 2, 3: // middle,right button

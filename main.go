@@ -45,16 +45,29 @@ func (w *Win) build() error {
 	}
 	w.fcv = fcv
 
-	w.fcv.AddOrphanedNode(flow.NewSNode("orphan node", ""))
+	on := flow.NewSNode("orphan node", "")
+	on.AppendPad("recv", flow.SideLeft, 0)
+	w.fcv.AddOrphanedNode(on)
 
 	if w.status, err = gtk.LabelNew("Nothing selected"); err != nil {
 		return err
 	}
 
+	fcvRoot.Connect("flow-selection", w.onFlowSelect)
+
 	w.tlBox.Add(w.status)
 	w.tlBox.Add(fcvRoot)
 	w.win.Add(w.tlBox)
 	return nil
+}
+
+func (w *Win) onFlowSelect() {
+	sel := w.fcv.GetSelection()
+	if sel == nil {
+		w.status.SetText("Nothing selected")
+	} else {
+		w.status.SetText(fmt.Sprintf("Selected %T: %+v", sel, sel))
+	}
 }
 
 func makeWin() (*Win, error) {

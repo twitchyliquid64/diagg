@@ -131,7 +131,7 @@ func (m *Model) initRenderState() (err error) {
 	return nil
 }
 
-func (m *Model) insertNodeHitObj(c flow.DrawNodeCmd, area *hit.Area) {
+func (m *Model) insertNodeObj(c flow.DrawNodeCmd, area *hit.Area) {
 	var (
 		x, y     = c.Layout.Pos()
 		w, h     = c.Node.Size()
@@ -147,7 +147,7 @@ func (m *Model) insertNodeHitObj(c flow.DrawNodeCmd, area *hit.Area) {
 	area.Add(min, max, sn)
 }
 
-func (m *Model) insertPadHitObj(c flow.DrawPadCmd, area *hit.Area) {
+func (m *Model) insertPadObj(c flow.DrawPadCmd, area *hit.Area) {
 	var (
 		x, y     = c.Layout.Pos()
 		dia, _   = c.Pad.Size()
@@ -169,16 +169,22 @@ func (m *Model) buildHitTester() {
 	for _, cmd := range m.displayList {
 		switch c := cmd.(type) {
 		case flow.DrawNodeCmd:
-			m.insertNodeHitObj(c, m.h)
+			m.insertNodeObj(c, m.h)
 		case flow.DrawPadCmd:
-			m.insertPadHitObj(c, m.h)
+			m.insertPadObj(c, m.h)
 		}
 	}
 
 	for _, o := range m.orphans {
 		switch c := o.(type) {
 		case flow.DrawNodeCmd:
-			m.insertNodeHitObj(c, m.h)
+			m.insertNodeObj(c, m.h)
+			for _, p := range c.Node.Pads() {
+				m.insertPadObj(flow.DrawPadCmd{
+					Layout: m.l.Pad(p),
+					Pad:    p,
+				}, m.h)
+			}
 		default:
 			panic("cannot handle unexpected orphan command")
 		}
@@ -200,8 +206,9 @@ func (m *Model) Draw(da *gtk.DrawingArea, cr *cairo.Context) {
 		switch c := cmd.(type) {
 		case flow.DrawNodeCmd:
 			m.r.DrawNode(da, cr, 0, m.nodeState[c.Node.NodeID()].(*rectNode))
-		case flow.DrawPadCmd:
-			m.r.DrawPad(da, cr, 0, m.nodeState[c.Pad.PadID()].(*circPad))
+			for _, p := range c.Node.Pads() {
+				m.r.DrawPad(da, cr, 0, m.nodeState[p.PadID()].(*circPad))
+			}
 		}
 	}
 	m.drawTime.Time(started)
