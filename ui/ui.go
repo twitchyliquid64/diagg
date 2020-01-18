@@ -3,6 +3,7 @@ package ui
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/gotk3/gotk3/cairo"
 	"github.com/gotk3/gotk3/gdk"
@@ -11,6 +12,8 @@ import (
 	"github.com/twitchyliquid64/diagg/hit"
 	"github.com/twitchyliquid64/diagg/ui/flowrender"
 )
+
+const posQuant = 16
 
 type dragState struct {
 	StartX, StartY float64
@@ -140,18 +143,31 @@ func (fcv *FlowchartView) onMotionEvent(area *gtk.DrawingArea, event *gdk.Event)
 		fcv.offsetY = -(fcv.pan.StartY - y)
 	}
 	if fcv.lmc.dragging && fcv.lmc.target != nil {
-		x, y := fcv.lmc.ObjX-(fcv.lmc.StartX-x)/fcv.zoom, fcv.lmc.ObjY-(fcv.lmc.StartY-y)/fcv.zoom
-		fcv.model.MoveTarget(fcv.lmc.target, x, y)
-		fcv.lmc.DragX, fcv.lmc.DragY = x, y
-		rebuildHits = true
-		// TODO: Instead of rebuilding completely, implement scanning the hit tester
-		// to update the single value being moved.
+		// Either we stay in the same position, or if the diff is greater than the
+		// position quanta, we move the target.
+		distSq := math.Pow(fcv.lmc.StartX-x, 2) + math.Pow(fcv.lmc.StartY-y, 2)
+		if distSq > (posQuant * posQuant) {
+			x, y := fcv.lmc.ObjX-(fcv.lmc.StartX-x)/fcv.zoom, fcv.lmc.ObjY-(fcv.lmc.StartY-y)/fcv.zoom
+			fcv.lmc.DragX, fcv.lmc.DragY = x, y
+			// Quantize the position.
+			x, y = quantizeCoords(x, y)
+			fcv.model.MoveTarget(fcv.lmc.target, x, y)
+			rebuildHits = true
+			// TODO: Instead of rebuilding completely, implement scanning the hit tester
+			// to update the single value being moved.
+		}
 	}
 
 	if rebuildHits {
 		fcv.model.buildHitTester()
 	}
 	fcv.da.QueueDraw()
+}
+
+func quantizeCoords(x, y float64) (float64, float64) {
+	x, y = float64(int(x/posQuant)*posQuant), float64(int(y/posQuant)*posQuant)
+	x, y = x+(posQuant/2), y+(posQuant/2)
+	return x, y
 }
 
 func (fcv *FlowchartView) onPressEvent(area *gtk.DrawingArea, event *gdk.Event) {
