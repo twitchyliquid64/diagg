@@ -88,6 +88,7 @@ type DrawObject uint8
 const (
 	DrawNode DrawObject = iota
 	DrawPad
+	DrawEdge
 )
 
 type DrawNodeCmd struct {
@@ -106,6 +107,16 @@ type DrawPadCmd struct {
 
 func (c DrawPadCmd) DrawObject() DrawObject {
 	return DrawPad
+}
+
+type DrawEdgeCmd struct {
+	From, To             Pad
+	FromLayout, ToLayout *PadLayout
+	Edge                 Edge
+}
+
+func (c DrawEdgeCmd) DrawObject() DrawObject {
+	return DrawEdge
 }
 
 type DrawCommand interface {
@@ -195,14 +206,48 @@ func (fl *Layout) populateDrawList(outList []DrawCommand, n Node, s dlState) ([]
 	s.bounds.update(nl, n)
 
 	for _, p := range n.Pads() {
-		pID := p.PadID()
-		if _, alreadyProcessed := s.renderedPads[pID]; alreadyProcessed {
-			continue
+		var err error
+		if outList, err = fl.populateDrawListPad(outList, p, n, s); err != nil {
+			return nil, err
 		}
-		s.renderedPads[pID] = struct{}{}
-		pl := fl.Pad(p)
-		outList = append(outList, DrawPadCmd{Pad: p, Layout: pl})
-		s.bounds.update(pl, p)
+	}
+	return outList, nil
+}
+
+func (fl *Layout) populateDrawListPad(outList []DrawCommand, p Pad, parent Node, s dlState) ([]DrawCommand, error) {
+	pID := p.PadID()
+	if _, alreadyProcessed := s.renderedPads[pID]; alreadyProcessed {
+		return outList, nil
+	}
+
+	s.renderedPads[pID] = struct{}{}
+	pl := fl.Pad(p)
+	outList = append(outList, DrawPadCmd{Pad: p, Layout: pl})
+	s.bounds.update(pl, p)
+
+	for _, fe := range p.StartEdges() {
+		// In case the referenced pad has not been rendered, render it before the
+		// edge so the edge appears on top.
+		var (
+			err   error
+			toPad = fe.To()
+			toPl  = fl.Pad(toPad)
+		)
+		if outList, err = fl.populateDrawList(outList, toPad.Parent(), s); err != nil {
+			return nil, err
+		}
+
+		cmd := DrawEdgeCmd{
+			From:       p,
+			To:         toPad,
+			FromLayout: pl,
+			ToLayout:   toPl,
+			Edge:       fe,
+		}
+		outList = append(outList, cmd)
+		if outList, err = fl.populateDrawList(outList, fe.To().Parent(), s); err != nil {
+			return nil, err
+		}
 	}
 	return outList, nil
 }

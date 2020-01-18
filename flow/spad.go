@@ -5,6 +5,9 @@ type SPad struct {
 	side    NodeSide
 	sideAmt float64
 	parent  Node
+
+	startEdges []Edge
+	endEdges   []Edge
 }
 
 func (sp *SPad) PadID() string {
@@ -14,7 +17,26 @@ func (sp *SPad) Size() (float64, float64) {
 	return 25, 25
 }
 
-func (sp *SPad) ConnectType() interface{} {
+func (sp *SPad) StartEdges() []Edge {
+	return sp.startEdges
+}
+func (sp *SPad) EndEdges() []Edge {
+	return sp.endEdges
+}
+
+func (sp *SPad) ConnectTo(e Edge) error {
+	if e.To() == sp {
+		return ErrSelfLink
+	}
+	sp.startEdges = append(sp.startEdges, e)
+	return nil
+}
+
+func (sp *SPad) ConnectFrom(e Edge) error {
+	if e.From() == sp {
+		return ErrSelfLink
+	}
+	sp.endEdges = append(sp.endEdges, e)
 	return nil
 }
 

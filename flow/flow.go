@@ -1,6 +1,8 @@
 // Package flow implements a flow chart
 package flow
 
+import "errors"
+
 type NodeSide uint8
 
 // Valid NodeSide values.
@@ -28,7 +30,18 @@ type Pad interface {
 	// as well as how far down the axis from the leftmost part of the side.
 	Positioning() (NodeSide, float64)
 
-	// ConnectType restricts the pads which this pad can be connected to,
-	// if it returns a non-nil value.
-	ConnectType() interface{}
+	StartEdges() []Edge
+	EndEdges() []Edge
+
+	ConnectTo(Edge) error
+	ConnectFrom(Edge) error
 }
+
+// Edge describes a link between two pads.
+type Edge interface {
+	EdgeID() string
+	From() Pad
+	To() Pad
+}
+
+var ErrSelfLink = errors.New("cannot link to self")

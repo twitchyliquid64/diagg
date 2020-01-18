@@ -1,6 +1,8 @@
 package flowui
 
 import (
+	"errors"
+	"fmt"
 	"math"
 	"time"
 
@@ -84,6 +86,28 @@ func (p circPad) HitTest(tp hit.Point) bool {
 	return distSq < math.Pow(dia/2, 2)
 }
 
+// lineEdge represents flowchart, layout, and UI state information
+// for an edge in the flowchart.
+type lineEdge struct {
+	E        flow.Edge
+	From, To *flow.PadLayout
+}
+
+func (e lineEdge) FromPos() (float64, float64) { return e.From.Pos() }
+func (e lineEdge) ToPos() (float64, float64)   { return e.To.Pos() }
+
+func (e lineEdge) Pos() (float64, float64) {
+	sx, sy := e.FromPos()
+	ex, ey := e.ToPos()
+	return (sx + ex) / 2, (sy + ey) / 2
+}
+
+func (e lineEdge) Edge() flow.Edge { return e.E }
+
+func (e lineEdge) Active() bool { return false }
+
+func (e lineEdge) HitTest(tp hit.Point) bool { return false }
+
 func (m *Model) maybeUpdateMinMax(x, y float64) {
 	if x > m.nMax.X {
 		m.nMax.X = x
@@ -122,12 +146,20 @@ func (m *Model) TargetPos(t hit.TestableObj) (x, y float64) {
 
 // initRenderState populates the display list and builds the hit tester.
 func (m *Model) initRenderState() (err error) {
+	if err := m.buildDrawList(); err != nil {
+		return err
+	}
+	m.buildModel()
+	return nil
+}
+
+func (m *Model) buildDrawList() error {
 	var min, max [2]float64
+	var err error
 	if min, max, m.displayList, err = m.l.DisplayList(); err != nil {
 		return err
 	}
 	m.nMin, m.nMax = hit.Point{X: min[0], Y: min[1]}, hit.Point{X: max[0], Y: max[1]}
-	m.buildHitTester()
 	return nil
 }
 
@@ -163,7 +195,7 @@ func (m *Model) insertPadObj(c flow.DrawPadCmd, area *hit.Area) {
 	area.Add(min, max, sn)
 }
 
-func (m *Model) buildHitTester() {
+func (m *Model) buildModel() {
 	started := time.Now()
 	m.h = hit.NewArea(m.nMin, m.nMax)
 	for _, cmd := range m.displayList {
@@ -172,6 +204,12 @@ func (m *Model) buildHitTester() {
 			m.insertNodeObj(c, m.h)
 		case flow.DrawPadCmd:
 			m.insertPadObj(c, m.h)
+		case flow.DrawEdgeCmd:
+			m.nodeState[c.Edge.EdgeID()] = &lineEdge{
+				E:    c.Edge,
+				From: m.l.Pad(c.Edge.From()),
+				To:   m.l.Pad(c.Edge.To()),
+			}
 		}
 	}
 
@@ -200,6 +238,8 @@ func (m *Model) Draw(da *gtk.DrawingArea, cr *cairo.Context) {
 			m.r.DrawNode(da, cr, 0, m.nodeState[c.Node.NodeID()].(*rectNode))
 		case flow.DrawPadCmd:
 			m.r.DrawPad(da, cr, 0, m.nodeState[c.Pad.PadID()].(*circPad))
+		case flow.DrawEdgeCmd:
+			m.r.DrawEdge(da, cr, 0, m.nodeState[c.Edge.EdgeID()].(*lineEdge))
 		}
 	}
 	for _, cmd := range m.orphans {
@@ -224,4 +264,63 @@ func (m *Model) SetTargetActive(target hit.TestableObj, a bool) {
 	default:
 		panic("type not handled")
 	}
+}
+
+var ErrNodeNotLinkable = errors.New("node cannot be linked by user")
+
+// UserLinkable describes a node which can have pads linked to another by
+// the user performing a drag from one node to another.
+type UserLinkable interface {
+	flow.Node
+	LinkPads(toNode flow.Node, fromPad, toPad flow.Pad) (flow.Edge, error)
+}
+
+func (m *Model) OnUserLinksPads(startPad, endPad *circPad) error {
+	fromNode, toNode := startPad.P.Parent(), endPad.P.Parent()
+
+	fmt.Printf("%T, %T\n", fromNode, toNode)
+	if linkableBaseNode, ok := fromNode.(UserLinkable); ok {
+		edge, err := linkableBaseNode.LinkPads(toNode, startPad.P, endPad.P)
+		if err != nil {
+			return err
+		}
+		if err := startPad.P.ConnectTo(edge); err != nil {
+			return err
+		}
+		if err := endPad.P.ConnectFrom(edge); err != nil {
+			return err
+		}
+		// At this stage the two pads have had an edge allocated and been
+		// successfully connected. If either node were previously orphaned,
+		// they will need to be removed from the orphan list as they are now
+		// connected.
+		m.removeNodeOrphan(fromNode)
+		m.removeNodeOrphan(toNode)
+		// Lastly, we rebuild the display list to account for the new edge
+		// and any decendant links.
+		if err := m.buildDrawList(); err != nil {
+			return err
+		}
+		m.buildModel()
+	}
+
+	return ErrNodeNotLinkable
+}
+
+// removeNode Orphan removes a node from the orphan list, usually due to the
+// node becoming attached to the flowchart via a newly-created edge. True is
+// returned if the orphan was found and hence removed.
+func (m *Model) removeNodeOrphan(n flow.Node) bool {
+	idx := -1
+	for i := 0; i < len(m.orphans); i++ {
+		if mn, ok := m.orphans[i].(flow.DrawNodeCmd); ok && mn.Node == n {
+			idx = i
+			break
+		}
+	}
+	if idx >= 0 {
+		m.orphans = append(m.orphans[:idx], m.orphans[:idx+1]...)
+		return true
+	}
+	return false
 }

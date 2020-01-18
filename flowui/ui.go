@@ -25,8 +25,9 @@ type dragState struct {
 type FlowchartView struct {
 	da *gtk.DrawingArea
 
-	lmc dragState // left mouse click, like moving a node.
-	pan dragState
+	lmc         dragState // left mouse click, like moving a node.
+	pan         dragState
+	hoverTarget *circPad
 
 	// State of the viewport.
 	offsetX float64
@@ -96,10 +97,13 @@ func (fcv *FlowchartView) onMotionEvent(area *gtk.DrawingArea, event *gdk.Event)
 	x, y := evt.MotionVal()
 	rebuildHits := false
 
+	// Handle moving the entire view.
 	if fcv.pan.dragging {
 		fcv.offsetX = -(fcv.pan.StartX - x)
 		fcv.offsetY = -(fcv.pan.StartY - y)
 	}
+
+	// Handle moving around nodes.
 	if fcv.lmc.dragging && fcv.lmc.target != nil {
 		// Either we stay in the same position, or if the diff is greater than the
 		// position quanta, we move the target.
@@ -116,10 +120,29 @@ func (fcv *FlowchartView) onMotionEvent(area *gtk.DrawingArea, event *gdk.Event)
 		}
 	}
 
+	// Handle hovering over pads while dragging from another pad.
+	if start := fcv.draggingFromPad(); start != nil {
+		hoverTarget := fcv.model.h.Test(fcv.drawCoordsToFlow(x, y))
+		if fcv.hoverTarget != start && fcv.hoverTarget != nil && fcv.hoverTarget != hoverTarget {
+			fcv.clearHoverTarget()
+		}
+		if endPad, hoversPad := hoverTarget.(*circPad); hoversPad {
+			fcv.hoverTarget = endPad
+			endPad.active = true
+		}
+	}
+
 	if rebuildHits {
-		fcv.model.buildHitTester()
+		fcv.model.buildModel()
 	}
 	fcv.da.QueueDraw()
+}
+
+func (fcv *FlowchartView) clearHoverTarget() {
+	if fcv.hoverTarget != nil {
+		fcv.hoverTarget.active = false
+		fcv.hoverTarget = nil
+	}
 }
 
 func quantizeCoords(x, y float64) (float64, float64) {
@@ -130,7 +153,7 @@ func quantizeCoords(x, y float64) (float64, float64) {
 
 func (fcv *FlowchartView) onPressEvent(area *gtk.DrawingArea, event *gdk.Event) {
 	evt := gdk.EventButtonNewFromEvent(event)
-	x, y := gdk.EventMotionNewFromEvent(event).MotionVal()
+	x, y := evt.MotionVal()
 	switch evt.Button() {
 	case 1: // left mouse button.
 		fcv.model.SetTargetActive(fcv.lmc.target, false)
@@ -138,6 +161,8 @@ func (fcv *FlowchartView) onPressEvent(area *gtk.DrawingArea, event *gdk.Event) 
 		fcv.lmc.StartX, fcv.lmc.StartY = x, y
 		tp := fcv.drawCoordsToFlow(x, y)
 
+		// If we clicked on a node/pad, update the selection state and set the
+		// element as active.
 		if fcv.lmc.target = fcv.model.h.Test(tp); fcv.lmc.target != nil {
 			fcv.lmc.ObjX, fcv.lmc.ObjY = fcv.model.TargetPos(fcv.lmc.target)
 			fcv.lmc.DragX, fcv.lmc.DragY = fcv.lmc.ObjX, fcv.lmc.ObjY
@@ -152,11 +177,37 @@ func (fcv *FlowchartView) onPressEvent(area *gtk.DrawingArea, event *gdk.Event) 
 	}
 }
 
+// draggingFromPad returns the *circPad of the pad which the user is dragging
+// from, or nil if the user is not currently dragging from a pad.
+func (fcv *FlowchartView) draggingFromPad() *circPad {
+	if !fcv.lmc.dragging {
+		return nil
+	}
+	if startPad, ok := fcv.lmc.target.(*circPad); ok {
+		return startPad
+	}
+	return nil
+}
+
 func (fcv *FlowchartView) onReleaseEvent(area *gtk.DrawingArea, event *gdk.Event) {
 	evt := gdk.EventButtonNewFromEvent(event)
+	x, y := gdk.EventMotionNewFromEvent(event).MotionVal()
+	releaseTarget := fcv.model.h.Test(fcv.drawCoordsToFlow(x, y))
+
 	switch evt.Button() {
 	case 1:
+		// Handle the user dragging from one pad to the other.
+		if startPad := fcv.draggingFromPad(); startPad != nil && releaseTarget != nil {
+			if endPad, ok := releaseTarget.(*circPad); ok && endPad != startPad {
+				fmt.Println(startPad, endPad)
+				if err := fcv.model.OnUserLinksPads(startPad, endPad); err != nil {
+					fmt.Printf("failed to link pads: %v\n", err)
+				}
+				fcv.da.Emit("flow-created-link")
+			}
+		}
 		fcv.lmc.dragging = false
+		fcv.clearHoverTarget()
 		fcv.da.QueueDraw()
 	case 2, 3: // middle,right button
 		fcv.pan.dragging = false

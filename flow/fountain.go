@@ -8,6 +8,7 @@ import (
 var (
 	nodeNum int
 	padNum  int
+	edgeNum int
 	l       sync.Mutex
 )
 
@@ -31,4 +32,15 @@ func AllocPadID(t string) string {
 		return fmt.Sprintf("pad-%d", padNum-1)
 	}
 	return fmt.Sprintf("pad-%s-%d", t, padNum-1)
+}
+
+func AllocEdgeID(t string) string {
+	l.Lock()
+	defer l.Unlock()
+
+	edgeNum++
+	if t == "" {
+		return fmt.Sprintf("edge-%d", edgeNum-1)
+	}
+	return fmt.Sprintf("edge-%s-%d", t, edgeNum-1)
 }

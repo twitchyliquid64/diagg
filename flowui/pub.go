@@ -12,6 +12,7 @@ import (
 )
 
 var flowSelectionSig, _ = glib.SignalNew("flow-selection")
+var createdLinkSig, _ = glib.SignalNew("flow-created-link")
 
 // NewFlowchartView constructs a new flowchart display widget, reading nodes
 // and position information from the provided layout.
@@ -65,7 +66,7 @@ func (fcv *FlowchartView) AddOrphanedNode(n flow.Node) {
 		Layout: fcv.model.l.Node(n),
 		Node:   n,
 	})
-	fcv.model.buildHitTester()
+	fcv.model.buildModel()
 	fcv.da.QueueDraw()
 }
 

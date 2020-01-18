@@ -30,10 +30,17 @@ type Pad interface {
 	Pad() flow.Pad
 }
 
+type Edge interface {
+	FromPos() (float64, float64)
+	ToPos() (float64, float64)
+	Edge() flow.Edge
+}
+
 // Appearance represents an implementation which can display a flowchart.
 type Appearance interface {
 	DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, n Node)
 	DrawPad(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, p Pad)
+	DrawEdge(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, e Edge)
 }
 
 type BasicRenderer struct{}
@@ -107,4 +114,17 @@ func (renderer *BasicRenderer) DrawPad(da *gtk.DrawingArea, cr *cairo.Context, a
 		cr.Stroke()
 		cr.SetDash(nil, 0)
 	}
+}
+
+func (renderer *BasicRenderer) DrawEdge(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, e Edge) {
+	var (
+		sx, sy  float64 = e.FromPos()
+		ex, ey  float64 = e.ToPos()
+		r, g, b         = 0.9, 0.9, 0.9
+	)
+
+	cr.SetSourceRGB(r, g, b)
+	cr.MoveTo(sx, sy)
+	cr.LineTo(ex, ey)
+	cr.Stroke()
 }
