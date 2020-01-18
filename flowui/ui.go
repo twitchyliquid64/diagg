@@ -1,5 +1,4 @@
-// Package UI implements an interactive graph renderer.
-package ui
+package flowui
 
 import (
 	"fmt"

@@ -7,7 +7,7 @@ import (
 
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/twitchyliquid64/diagg/flow"
-	"github.com/twitchyliquid64/diagg/ui"
+	ui "github.com/twitchyliquid64/diagg/flowui"
 )
 
 // Win encapsulates the UI state of the window.
@@ -47,7 +47,7 @@ func (w *Win) build() error {
 
 	w.fcv.AddOrphanedNode(flow.NewSNode("orphan node", ""))
 
-	if w.status, err = gtk.LabelNew("X: 0, Y: 0"); err != nil {
+	if w.status, err = gtk.LabelNew("Nothing selected"); err != nil {
 		return err
 	}
 

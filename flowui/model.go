@@ -1,4 +1,4 @@
-package ui
+package flowui
 
 import (
 	"math"
@@ -7,8 +7,8 @@ import (
 	"github.com/gotk3/gotk3/cairo"
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/twitchyliquid64/diagg/flow"
+	"github.com/twitchyliquid64/diagg/flowui/render"
 	"github.com/twitchyliquid64/diagg/hit"
-	"github.com/twitchyliquid64/diagg/ui/flowrender"
 )
 
 // Model encapsulates the state of the flowchart.
@@ -18,7 +18,7 @@ type Model struct {
 	// Positions of nodes/pads in the flowchart.
 	l *flow.Layout
 	// Renderer for nodes/pads during draw.
-	r flowrender.Appearance
+	r render.Appearance
 	// Hit testing for mouse events.
 	h *hit.Area
 	// Latest display list to use for renders.

@@ -1,4 +1,4 @@
-package flowrender
+package render
 
 import (
 	"math"

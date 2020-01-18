@@ -1,12 +1,11 @@
-package ui
+// Package flowui implements an interactive graph renderer.
+package flowui
 
 import (
-	"fmt"
-
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/twitchyliquid64/diagg/flow"
-	"github.com/twitchyliquid64/diagg/ui/flowrender"
+	"github.com/twitchyliquid64/diagg/flowui/render"
 )
 
 // NewFlowchartView constructs a new flowchart display widget, reading nodes
@@ -17,7 +16,7 @@ func NewFlowchartView(l *flow.Layout) (*FlowchartView, *gtk.DrawingArea, error) 
 		zoom: 1,
 		model: Model{
 			l:         l,
-			r:         &flowrender.BasicRenderer{},
+			r:         &render.BasicRenderer{},
 			nodeState: map[string]modelNode{},
 			drawTime:  averageMetric{Name: "draw time"},
 			mkHitTime: averageMetric{Name: "hit build time"},
@@ -50,10 +49,13 @@ func NewFlowchartView(l *flow.Layout) (*FlowchartView, *gtk.DrawingArea, error) 
 	return fcv, fcv.da, err
 }
 
+// AddOrphanedNode inserts a new node into the layout and view, unconnected to
+// any other nodes.
 func (fcv *FlowchartView) AddOrphanedNode(n flow.Node) {
-	x, y := (fcv.offsetX+float64(fcv.width/2))/fcv.zoom, (fcv.offsetY+float64(fcv.height/2))/fcv.zoom
-	fmt.Println(x, y)
+	w, h := n.Size()
+	x, y := (fcv.offsetX-float64(fcv.width)+w/2)/fcv.zoom, (fcv.offsetY-float64(fcv.height)+h/2)/fcv.zoom
 	fcv.model.l.MoveNode(n, x, y)
+
 	fcv.model.orphans = append(fcv.model.orphans, flow.DrawNodeCmd{
 		Layout: fcv.model.l.Node(n),
 		Node:   n,
