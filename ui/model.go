@@ -25,6 +25,8 @@ type Model struct {
 	displayList []flow.DrawCommand
 	// Maps node/pad ID to state.
 	nodeState map[string]modelNode
+	// Orphaned nodes (ie: not connected to the graph, just placed)
+	orphans []flow.DrawCommand
 
 	// performance metrics
 	drawTime  averageMetric
@@ -129,41 +131,56 @@ func (m *Model) initRenderState() (err error) {
 	return nil
 }
 
+func (m *Model) insertNodeHitObj(c flow.DrawNodeCmd, area *hit.Area) {
+	var (
+		x, y     = c.Layout.Pos()
+		w, h     = c.Node.Size()
+		min, max = hit.Point{X: x - w/2, Y: y - h/2}, hit.Point{X: x + w/2, Y: y + h/2}
+		nID      = c.Node.NodeID()
+	)
+
+	sn, ok := m.nodeState[nID]
+	if !ok {
+		sn = &rectNode{N: c.Node, Layout: c.Layout}
+		m.nodeState[nID] = sn
+	}
+	area.Add(min, max, sn)
+}
+
+func (m *Model) insertPadHitObj(c flow.DrawPadCmd, area *hit.Area) {
+	var (
+		x, y     = c.Layout.Pos()
+		dia, _   = c.Pad.Size()
+		min, max = hit.Point{X: x - dia/2, Y: y - dia/2}, hit.Point{X: x + dia/2, Y: y + dia/2}
+		pID      = c.Pad.PadID()
+	)
+
+	sn, ok := m.nodeState[pID]
+	if !ok {
+		sn = &circPad{P: c.Pad, Layout: c.Layout}
+		m.nodeState[pID] = sn
+	}
+	area.Add(min, max, sn)
+}
+
 func (m *Model) buildHitTester() {
 	started := time.Now()
 	m.h = hit.NewArea(m.nMin, m.nMax)
 	for _, cmd := range m.displayList {
 		switch c := cmd.(type) {
 		case flow.DrawNodeCmd:
-			var (
-				x, y     = c.Layout.Pos()
-				w, h     = c.Node.Size()
-				min, max = hit.Point{X: x - w/2, Y: y - h/2}, hit.Point{X: x + w/2, Y: y + h/2}
-				nID      = c.Node.NodeID()
-			)
-
-			sn, ok := m.nodeState[nID]
-			if !ok {
-				sn = &rectNode{N: c.Node, Layout: c.Layout}
-				m.nodeState[nID] = sn
-			}
-			m.h.Add(min, max, sn)
-
+			m.insertNodeHitObj(c, m.h)
 		case flow.DrawPadCmd:
-			var (
-				x, y     = c.Layout.Pos()
-				dia, _   = c.Pad.Size()
-				min, max = hit.Point{X: x - dia/2, Y: y - dia/2}, hit.Point{X: x + dia/2, Y: y + dia/2}
-				pID      = c.Pad.PadID()
-			)
+			m.insertPadHitObj(c, m.h)
+		}
+	}
 
-			sn, ok := m.nodeState[pID]
-			if !ok {
-				sn = &circPad{P: c.Pad, Layout: c.Layout}
-				m.nodeState[pID] = sn
-			}
-			m.h.Add(min, max, sn)
-
+	for _, o := range m.orphans {
+		switch c := o.(type) {
+		case flow.DrawNodeCmd:
+			m.insertNodeHitObj(c, m.h)
+		default:
+			panic("cannot handle unexpected orphan command")
 		}
 	}
 	m.mkHitTime.Time(started)
@@ -172,6 +189,14 @@ func (m *Model) buildHitTester() {
 func (m *Model) Draw(da *gtk.DrawingArea, cr *cairo.Context) {
 	started := time.Now()
 	for _, cmd := range m.displayList {
+		switch c := cmd.(type) {
+		case flow.DrawNodeCmd:
+			m.r.DrawNode(da, cr, 0, m.nodeState[c.Node.NodeID()].(*rectNode))
+		case flow.DrawPadCmd:
+			m.r.DrawPad(da, cr, 0, m.nodeState[c.Pad.PadID()].(*circPad))
+		}
+	}
+	for _, cmd := range m.orphans {
 		switch c := cmd.(type) {
 		case flow.DrawNodeCmd:
 			m.r.DrawNode(da, cr, 0, m.nodeState[c.Node.NodeID()].(*rectNode))

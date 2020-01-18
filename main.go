@@ -45,6 +45,8 @@ func (w *Win) build() error {
 	}
 	w.fcv = fcv
 
+	w.fcv.AddOrphanedNode(flow.NewSNode("orphan node", ""))
+
 	if w.status, err = gtk.LabelNew("X: 0, Y: 0"); err != nil {
 		return err
 	}
