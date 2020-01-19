@@ -66,10 +66,11 @@ func (fcv *FlowchartView) onCanvasDrawEvent(da *gtk.DrawingArea, cr *cairo.Conte
 	}
 	cr.Restore()
 
-	fcv.writeDebugStr(da, cr, fmt.Sprintf("Zoom: %.2f", fcv.zoom), 3)
-	fcv.writeDebugStr(da, cr, fmt.Sprintf("Pos: %3.2f, %3.2f", fcv.offsetX, fcv.offsetY), 2)
-	fcv.writeDebugStr(da, cr, fmt.Sprintf("%s: %s", fcv.model.drawTime.Metric(), fcv.model.drawTime.Compute()), 1)
-	fcv.writeDebugStr(da, cr, fmt.Sprintf("%s: %s", fcv.model.mkHitTime.Metric(), fcv.model.mkHitTime.Compute()), 0)
+	fcv.writeDebugStr(da, cr, fmt.Sprintf("Zoom: %.2f", fcv.zoom), 4)
+	fcv.writeDebugStr(da, cr, fmt.Sprintf("Pos: %3.2f, %3.2f", fcv.offsetX, fcv.offsetY), 3)
+	fcv.writeDebugStr(da, cr, fmt.Sprintf("%s: %s", fcv.model.drawTime.Metric(), fcv.model.drawTime.Compute()), 2)
+	fcv.writeDebugStr(da, cr, fmt.Sprintf("%s: %s", fcv.model.mkHitTime.Metric(), fcv.model.mkHitTime.Compute()), 1)
+	fcv.writeDebugStr(da, cr, fmt.Sprintf("%s: %s", fcv.model.hitTime.Metric(), fcv.model.hitTime.Compute()), 0)
 	return false
 }
 
@@ -103,26 +104,29 @@ func (fcv *FlowchartView) onMotionEvent(area *gtk.DrawingArea, event *gdk.Event)
 		fcv.offsetY = -(fcv.pan.StartY - y)
 	}
 
-	// Handle moving around nodes.
+	// Handle moving around nodes & dragging a pad connection.
 	if fcv.lmc.dragging && fcv.lmc.target != nil {
-		// Either we stay in the same position, or if the diff is greater than the
-		// position quanta, we move the target.
-		distSq := math.Pow(fcv.lmc.StartX-x, 2) + math.Pow(fcv.lmc.StartY-y, 2)
-		if distSq > (posQuant * posQuant) {
-			x, y := fcv.lmc.ObjX-(fcv.lmc.StartX-x)/fcv.zoom, fcv.lmc.ObjY-(fcv.lmc.StartY-y)/fcv.zoom
-			fcv.lmc.DragX, fcv.lmc.DragY = x, y
-			// Quantize the position.
-			x, y = quantizeCoords(x, y)
-			fcv.model.MoveTarget(fcv.lmc.target, x, y)
-			rebuildHits = true
-			// TODO: Instead of rebuilding completely, implement scanning the hit tester
-			// to update the single value being moved.
+		// Update the end position for the drag.
+		x, y := fcv.lmc.ObjX-(fcv.lmc.StartX-x)/fcv.zoom, fcv.lmc.ObjY-(fcv.lmc.StartY-y)/fcv.zoom
+		fcv.lmc.DragX, fcv.lmc.DragY = x, y
+
+		// If the starting element was a node, we need to handle moving it.
+		if _, isNode := fcv.lmc.target.(*rectNode); isNode {
+			// Either we stay in the same position, or if the diff is greater than the
+			// position quanta, we move the target.
+			distSq := math.Pow(fcv.lmc.StartX-x, 2) + math.Pow(fcv.lmc.StartY-y, 2)
+			if distSq > (posQuant * posQuant) {
+				// Quantize the position.
+				x, y = quantizeCoords(x, y)
+				fcv.model.MoveTarget(fcv.lmc.target, x, y)
+				rebuildHits = true
+			}
 		}
 	}
 
 	// Handle hovering over pads while dragging from another pad.
 	if start := fcv.draggingFromPad(); start != nil {
-		hoverTarget := fcv.model.h.Test(fcv.drawCoordsToFlow(x, y))
+		hoverTarget := fcv.model.HitTest(fcv.drawCoordsToFlow(x, y))
 		if fcv.hoverTarget != start && fcv.hoverTarget != nil && fcv.hoverTarget != hoverTarget {
 			fcv.clearHoverTarget()
 		}
@@ -133,6 +137,8 @@ func (fcv *FlowchartView) onMotionEvent(area *gtk.DrawingArea, event *gdk.Event)
 	}
 
 	if rebuildHits {
+		// TODO: Instead of rebuilding completely, implement scanning the hit tester
+		// to update the single value being moved.
 		fcv.model.buildModel()
 	}
 	fcv.da.QueueDraw()
@@ -163,7 +169,7 @@ func (fcv *FlowchartView) onPressEvent(area *gtk.DrawingArea, event *gdk.Event) 
 
 		// If we clicked on a node/pad, update the selection state and set the
 		// element as active.
-		if fcv.lmc.target = fcv.model.h.Test(tp); fcv.lmc.target != nil {
+		if fcv.lmc.target = fcv.model.HitTest(tp); fcv.lmc.target != nil {
 			fcv.lmc.ObjX, fcv.lmc.ObjY = fcv.model.TargetPos(fcv.lmc.target)
 			fcv.lmc.DragX, fcv.lmc.DragY = fcv.lmc.ObjX, fcv.lmc.ObjY
 			fcv.model.SetTargetActive(fcv.lmc.target, true)
@@ -192,7 +198,7 @@ func (fcv *FlowchartView) draggingFromPad() *circPad {
 func (fcv *FlowchartView) onReleaseEvent(area *gtk.DrawingArea, event *gdk.Event) {
 	evt := gdk.EventButtonNewFromEvent(event)
 	x, y := gdk.EventMotionNewFromEvent(event).MotionVal()
-	releaseTarget := fcv.model.h.Test(fcv.drawCoordsToFlow(x, y))
+	releaseTarget := fcv.model.HitTest(fcv.drawCoordsToFlow(x, y))
 
 	switch evt.Button() {
 	case 1:

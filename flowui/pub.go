@@ -26,6 +26,7 @@ func NewFlowchartView(l *flow.Layout) (*FlowchartView, *gtk.DrawingArea, error) 
 			nodeState: map[string]modelNode{},
 			drawTime:  averageMetric{Name: "draw time"},
 			mkHitTime: averageMetric{Name: "hit build time"},
+			hitTime:   averageMetric{Name: "hit test time"},
 		},
 	}
 

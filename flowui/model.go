@@ -31,6 +31,7 @@ type Model struct {
 	// performance metrics
 	drawTime  averageMetric
 	mkHitTime averageMetric
+	hitTime   averageMetric
 }
 
 func (m *Model) maybeUpdateMinMax(x, y float64) {
@@ -241,4 +242,11 @@ func (m *Model) removeNodeOrphan(n flow.Node) bool {
 		return true
 	}
 	return false
+}
+
+func (m *Model) HitTest(p hit.Point) hit.TestableObj {
+	start := time.Now()
+	tp := m.h.Test(p)
+	m.hitTime.Time(start)
+	return tp
 }
