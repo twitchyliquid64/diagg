@@ -8,15 +8,15 @@ import (
 	"github.com/twitchyliquid64/diagg/flow"
 )
 
-// headlineElement types are elements which have text which should be rendered
-// on  them.
-type headlineElement interface {
+// HeadlineElement describes nodes which have text labels which should
+// be rendered.
+type HeadlineElement interface {
 	NodeHeadline() string
 }
 
-// focusableElement types are elements which can be focused, and are drawn with
+// FocusableElement types are elements which can be focused, and are drawn with
 // a thicker outline if they are currently focused.
-type focusableElement interface {
+type FocusableElement interface {
 	Active() bool
 }
 
@@ -46,7 +46,7 @@ type Appearance interface {
 type BasicRenderer struct{}
 
 func (r *BasicRenderer) isFocused(n interface{}) bool {
-	if fe, ok := n.(focusableElement); ok {
+	if fe, ok := n.(FocusableElement); ok {
 		return fe.Active()
 	}
 	return false
@@ -71,7 +71,7 @@ func (r *BasicRenderer) DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animSte
 	cr.SetSourceRGB(0.5, 0.1, 0.1)
 	cr.Fill()
 
-	if hln, ok := node.(headlineElement); ok {
+	if hln, ok := node.(HeadlineElement); ok {
 		cr.MoveTo(x-hw+7, y-hh+18)
 		cr.SetSourceRGB(1, 1, 1)
 		cr.SetFontSize(16)

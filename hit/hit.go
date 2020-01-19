@@ -1,8 +1,8 @@
 package hit
 
 const (
-	numX = 32
-	numY = 24
+	numX = 16
+	numY = 8
 )
 
 type Point struct {
