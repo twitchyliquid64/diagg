@@ -8,6 +8,8 @@ type SPad struct {
 
 	startEdges []Edge
 	endEdges   []Edge
+
+	r, g, b float64
 }
 
 func (sp *SPad) PadID() string {
@@ -48,11 +50,21 @@ func (sp *SPad) Positioning() (NodeSide, float64) {
 	return sp.side, sp.sideAmt
 }
 
+func (sp *SPad) PadColor() (float64, float64, float64) {
+	return sp.r, sp.g, sp.b
+}
+func (sp *SPad) SetPadColor(r, g, b float64) {
+	sp.r, sp.g, sp.b = r, g, b
+}
+
 func NewSPad(t string, parent Node, side NodeSide, sideAmt float64) *SPad {
 	return &SPad{
 		parent:  parent,
 		side:    side,
 		sideAmt: sideAmt,
 		id:      AllocPadID(t),
+		r:       0.5,
+		g:       0.5,
+		b:       0.5,
 	}
 }

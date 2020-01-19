@@ -37,7 +37,9 @@ func (w *Win) build() error {
 	}
 
 	root := flow.NewSNode("test node", "")
-	root.AppendPad("test", flow.SideRight, 0)
+	p := flow.NewSPad("test", root, flow.SideRight, 0)
+	p.SetPadColor(0.1, 0.55, 0.1)
+	root.AppendPad(p)
 	l := flow.NewLayout(root)
 	fcv, fcvRoot, err := ui.NewFlowchartView(l)
 	if err != nil {
@@ -46,7 +48,9 @@ func (w *Win) build() error {
 	w.fcv = fcv
 
 	on := flow.NewSNode("orphan node", "")
-	on.AppendPad("recv", flow.SideLeft, 0)
+	p = flow.NewSPad("test", on, flow.SideLeft, 0)
+	p.SetPadColor(0.7, 0.1, 0.1)
+	on.AppendPad(p)
 	w.fcv.AddOrphanedNode(on)
 
 	if w.status, err = gtk.LabelNew("Nothing selected"); err != nil {

@@ -20,6 +20,7 @@ type dragState struct {
 	// only valid for left-mouse-click.
 	ObjX, ObjY float64
 	target     hit.TestableObj
+	sqDist     float64
 }
 
 type FlowchartView struct {
@@ -118,8 +119,8 @@ func (fcv *FlowchartView) onMotionEvent(area *gtk.DrawingArea, event *gdk.Event)
 		if _, isNode := fcv.lmc.target.(*rectNode); isNode {
 			// Either we stay in the same position, or if the diff is greater than the
 			// position quanta, we move the target.
-			distSq := math.Pow(fcv.lmc.StartX-x, 2) + math.Pow(fcv.lmc.StartY-y, 2)
-			if distSq > (posQuant * posQuant) {
+			fcv.lmc.sqDist = math.Pow(fcv.lmc.StartX-x, 2) + math.Pow(fcv.lmc.StartY-y, 2)
+			if fcv.lmc.sqDist > (posQuant * posQuant) {
 				// Quantize the position.
 				x, y = quantizeCoords(x, y)
 				fcv.model.MoveTarget(fcv.lmc.target, x, y)

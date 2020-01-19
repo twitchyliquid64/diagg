@@ -20,8 +20,12 @@ func (sn *SNode) Size() (float64, float64) {
 	return 200, 120
 }
 
-func (sn *SNode) AppendPad(t string, side NodeSide, sideAmt float64) {
+func (sn *SNode) AppendSPad(t string, side NodeSide, sideAmt float64) {
 	sn.pads = append(sn.pads, NewSPad(t, sn, side, sideAmt))
+}
+
+func (sn *SNode) AppendPad(pad Pad) {
+	sn.pads = append(sn.pads, pad)
 }
 
 // LinkPads implements flowui.UserLinkable.
