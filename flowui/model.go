@@ -2,7 +2,6 @@ package flowui
 
 import (
 	"errors"
-	"fmt"
 	"math"
 	"time"
 
@@ -278,16 +277,8 @@ type UserLinkable interface {
 func (m *Model) OnUserLinksPads(startPad, endPad *circPad) error {
 	fromNode, toNode := startPad.P.Parent(), endPad.P.Parent()
 
-	fmt.Printf("%T, %T\n", fromNode, toNode)
 	if linkableBaseNode, ok := fromNode.(UserLinkable); ok {
-		edge, err := linkableBaseNode.LinkPads(toNode, startPad.P, endPad.P)
-		if err != nil {
-			return err
-		}
-		if err := startPad.P.ConnectTo(edge); err != nil {
-			return err
-		}
-		if err := endPad.P.ConnectFrom(edge); err != nil {
+		if _, err := linkableBaseNode.LinkPads(toNode, startPad.P, endPad.P); err != nil {
 			return err
 		}
 		// At this stage the two pads have had an edge allocated and been
@@ -302,6 +293,7 @@ func (m *Model) OnUserLinksPads(startPad, endPad *circPad) error {
 			return err
 		}
 		m.buildModel()
+		return nil
 	}
 
 	return ErrNodeNotLinkable

@@ -45,3 +45,5 @@ type Edge interface {
 }
 
 var ErrSelfLink = errors.New("cannot link to self")
+
+var ErrAlreadyLinked = errors.New("pads already linked")

@@ -79,6 +79,7 @@ func (b *bounds) update(pos positionable, size sizeable) {
 type dlState struct {
 	renderedNodes map[string]struct{}
 	renderedPads  map[string]struct{}
+	renderedEdges map[string]struct{}
 	bounds        *bounds
 }
 
@@ -187,15 +188,16 @@ func (fl *Layout) DisplayList() (min, max [2]float64, dl []DrawCommand, err erro
 	b := &bounds{}
 	b.update(fl.nodes[fl.root.NodeID()], fl.root)
 
-	dl, err = fl.populateDrawList(make([]DrawCommand, 0, 256), fl.root, dlState{
-		renderedNodes: make(map[string]struct{}, 32+len(fl.nodes)),
-		renderedPads:  make(map[string]struct{}, 32+len(fl.pads)),
+	dl, err = fl.populateDrawListNode(make([]DrawCommand, 0, 256), fl.root, dlState{
+		renderedNodes: make(map[string]struct{}, 4+len(fl.nodes)),
+		renderedPads:  make(map[string]struct{}, 12+len(fl.pads)),
+		renderedEdges: make(map[string]struct{}, 32),
 		bounds:        b,
 	})
 	return [2]float64{b.minX, b.minY}, [2]float64{b.maxY, b.maxY}, dl, err
 }
 
-func (fl *Layout) populateDrawList(outList []DrawCommand, n Node, s dlState) ([]DrawCommand, error) {
+func (fl *Layout) populateDrawListNode(outList []DrawCommand, n Node, s dlState) ([]DrawCommand, error) {
 	nID := n.NodeID()
 	if _, alreadyProcessed := s.renderedNodes[nID]; alreadyProcessed {
 		return outList, nil
@@ -225,29 +227,47 @@ func (fl *Layout) populateDrawListPad(outList []DrawCommand, p Pad, parent Node,
 	outList = append(outList, DrawPadCmd{Pad: p, Layout: pl})
 	s.bounds.update(pl, p)
 
-	for _, fe := range p.StartEdges() {
-		// In case the referenced pad has not been rendered, render it before the
-		// edge so the edge appears on top.
-		var (
-			err   error
-			toPad = fe.To()
-			toPl  = fl.Pad(toPad)
-		)
-		if outList, err = fl.populateDrawList(outList, toPad.Parent(), s); err != nil {
+	for _, se := range p.StartEdges() {
+		var err error
+		if outList, err = fl.populateDrawListEdge(outList, se, p, s); err != nil {
 			return nil, err
 		}
-
-		cmd := DrawEdgeCmd{
-			From:       p,
-			To:         toPad,
-			FromLayout: pl,
-			ToLayout:   toPl,
-			Edge:       fe,
-		}
-		outList = append(outList, cmd)
-		if outList, err = fl.populateDrawList(outList, fe.To().Parent(), s); err != nil {
+	}
+	for _, ee := range p.EndEdges() {
+		var err error
+		if outList, err = fl.populateDrawListEdge(outList, ee, p, s); err != nil {
 			return nil, err
 		}
 	}
 	return outList, nil
+}
+
+func (fl *Layout) populateDrawListEdge(outList []DrawCommand, e Edge, parent Pad, s dlState) ([]DrawCommand, error) {
+	eID := e.EdgeID()
+	if _, alreadyProcessed := s.renderedEdges[eID]; alreadyProcessed {
+		return outList, nil
+	}
+	s.renderedEdges[eID] = struct{}{}
+
+	// In case the referenced pad has not been rendered, render it before the
+	// edge so the edge appears on top.
+	var (
+		err            error
+		toPad, fromPad = e.To(), e.From()
+		toPl, fromPl   = fl.Pad(toPad), fl.Pad(fromPad)
+	)
+	if outList, err = fl.populateDrawListNode(outList, toPad.Parent(), s); err != nil {
+		return nil, err
+	}
+	if outList, err = fl.populateDrawListNode(outList, fromPad.Parent(), s); err != nil {
+		return nil, err
+	}
+
+	return append(outList, DrawEdgeCmd{
+		From:       fromPad,
+		To:         toPad,
+		FromLayout: fromPl,
+		ToLayout:   toPl,
+		Edge:       e,
+	}), nil
 }

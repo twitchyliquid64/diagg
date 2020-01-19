@@ -199,11 +199,11 @@ func (fcv *FlowchartView) onReleaseEvent(area *gtk.DrawingArea, event *gdk.Event
 		// Handle the user dragging from one pad to the other.
 		if startPad := fcv.draggingFromPad(); startPad != nil && releaseTarget != nil {
 			if endPad, ok := releaseTarget.(*circPad); ok && endPad != startPad {
-				fmt.Println(startPad, endPad)
 				if err := fcv.model.OnUserLinksPads(startPad, endPad); err != nil {
 					fmt.Printf("failed to link pads: %v\n", err)
+				} else {
+					fcv.da.Emit("flow-created-link")
 				}
-				fcv.da.Emit("flow-created-link")
 			}
 		}
 		fcv.lmc.dragging = false

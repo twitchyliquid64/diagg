@@ -26,7 +26,22 @@ func (sn *SNode) AppendPad(t string, side NodeSide, sideAmt float64) {
 
 // LinkPads implements flowui.UserLinkable.
 func (sn *SNode) LinkPads(toNode Node, fromPad, toPad Pad) (Edge, error) {
-	return NewSEdge("", fromPad, toPad), nil
+	for _, e := range append(fromPad.StartEdges(), fromPad.EndEdges()...) {
+		switch {
+		case e.From() == fromPad && e.To() == toPad:
+			return nil, ErrAlreadyLinked
+		case e.From() == toPad && e.To() == fromPad:
+			return nil, ErrAlreadyLinked
+		}
+	}
+	edge := NewSEdge("", fromPad, toPad)
+	if err := fromPad.ConnectTo(edge); err != nil {
+		return nil, err
+	}
+	if err := toPad.ConnectFrom(edge); err != nil {
+		return nil, err
+	}
+	return edge, nil
 }
 
 func NewSNode(hl, t string) *SNode {
