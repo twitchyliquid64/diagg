@@ -38,9 +38,9 @@ type Edge interface {
 
 // Appearance represents an implementation which can display a flowchart.
 type Appearance interface {
-	DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, n Node)
-	DrawPad(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, p Pad)
-	DrawEdge(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, e Edge)
+	DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animStep int64, n Node)
+	DrawPad(da *gtk.DrawingArea, cr *cairo.Context, animStep int64, p Pad)
+	DrawEdge(da *gtk.DrawingArea, cr *cairo.Context, animStep int64, e Edge)
 }
 
 type BasicRenderer struct{}
@@ -52,7 +52,7 @@ func (r *BasicRenderer) isFocused(n interface{}) bool {
 	return false
 }
 
-func (r *BasicRenderer) DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, n Node) {
+func (r *BasicRenderer) DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animStep int64, n Node) {
 	var (
 		node                     = n.Node()
 		x, y             float64 = n.Pos()
@@ -80,7 +80,7 @@ func (r *BasicRenderer) DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animSte
 	}
 }
 
-func (renderer *BasicRenderer) DrawPad(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, p Pad) {
+func (renderer *BasicRenderer) DrawPad(da *gtk.DrawingArea, cr *cairo.Context, animStep int64, p Pad) {
 	var (
 		pad             = p.Pad()
 		x, y    float64 = p.Pos()
@@ -107,7 +107,7 @@ func (renderer *BasicRenderer) DrawPad(da *gtk.DrawingArea, cr *cairo.Context, a
 
 	if focused {
 		cr.SetLineWidth(2)
-		cr.SetDash([]float64{4, 4}, 1)
+		cr.SetDash([]float64{4, 4}, float64(-(animStep >> 15)))
 		cr.NewPath()
 		cr.Arc(x, y, dia/2+dia/10, -math.Pi, math.Pi)
 		cr.ClosePath()
@@ -116,7 +116,7 @@ func (renderer *BasicRenderer) DrawPad(da *gtk.DrawingArea, cr *cairo.Context, a
 	}
 }
 
-func (renderer *BasicRenderer) DrawEdge(da *gtk.DrawingArea, cr *cairo.Context, animStep float64, e Edge) {
+func (renderer *BasicRenderer) DrawEdge(da *gtk.DrawingArea, cr *cairo.Context, animStep int64, e Edge) {
 	var (
 		sx, sy  float64 = e.FromPos()
 		ex, ey  float64 = e.ToPos()

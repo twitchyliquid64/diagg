@@ -156,24 +156,24 @@ func (m *Model) buildModel() {
 	m.mkHitTime.Time(started)
 }
 
-func (m *Model) Draw(da *gtk.DrawingArea, cr *cairo.Context) {
+func (m *Model) Draw(da *gtk.DrawingArea, cr *cairo.Context, animStep int64) {
 	started := time.Now()
 	for _, cmd := range m.displayList {
 		switch c := cmd.(type) {
 		case flow.DrawNodeCmd:
-			m.r.DrawNode(da, cr, 0, m.nodeState[c.Node.NodeID()].(*rectNode))
+			m.r.DrawNode(da, cr, animStep, m.nodeState[c.Node.NodeID()].(*rectNode))
 		case flow.DrawPadCmd:
-			m.r.DrawPad(da, cr, 0, m.nodeState[c.Pad.PadID()].(*circPad))
+			m.r.DrawPad(da, cr, animStep, m.nodeState[c.Pad.PadID()].(*circPad))
 		case flow.DrawEdgeCmd:
-			m.r.DrawEdge(da, cr, 0, m.nodeState[c.Edge.EdgeID()].(*lineEdge))
+			m.r.DrawEdge(da, cr, animStep, m.nodeState[c.Edge.EdgeID()].(*lineEdge))
 		}
 	}
 	for _, cmd := range m.orphans {
 		switch c := cmd.(type) {
 		case flow.DrawNodeCmd:
-			m.r.DrawNode(da, cr, 0, m.nodeState[c.Node.NodeID()].(*rectNode))
+			m.r.DrawNode(da, cr, animStep, m.nodeState[c.Node.NodeID()].(*rectNode))
 			for _, p := range c.Node.Pads() {
-				m.r.DrawPad(da, cr, 0, m.nodeState[p.PadID()].(*circPad))
+				m.r.DrawPad(da, cr, animStep, m.nodeState[p.PadID()].(*circPad))
 			}
 		}
 	}

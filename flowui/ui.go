@@ -29,6 +29,10 @@ type FlowchartView struct {
 	pan         dragState
 	hoverTarget *circPad
 
+	animHnd       int
+	animStartTime int64
+	animTime      int64
+
 	// State of the viewport.
 	offsetX float64
 	offsetY float64
@@ -58,7 +62,7 @@ func (fcv *FlowchartView) onCanvasDrawEvent(da *gtk.DrawingArea, cr *cairo.Conte
 	if fcv.zoom > 0 {
 		cr.Scale(fcv.zoom, fcv.zoom)
 	}
-	fcv.model.Draw(da, cr)
+	fcv.model.Draw(da, cr, fcv.animTime-fcv.animStartTime)
 	if fcv.lmc.dragging {
 		if rn, ok := fcv.lmc.target.(*circPad); ok {
 			fcv.drawDragLink(da, cr, rn)
@@ -173,6 +177,11 @@ func (fcv *FlowchartView) onPressEvent(area *gtk.DrawingArea, event *gdk.Event) 
 			fcv.lmc.ObjX, fcv.lmc.ObjY = fcv.model.TargetPos(fcv.lmc.target)
 			fcv.lmc.DragX, fcv.lmc.DragY = fcv.lmc.ObjX, fcv.lmc.ObjY
 			fcv.model.SetTargetActive(fcv.lmc.target, true)
+
+			// If the target is a pad, we should animate the hover circles.
+			if _, isPad := fcv.lmc.target.(*circPad); isPad {
+				fcv.ensureAnimating()
+			}
 		}
 		fcv.da.Emit("flow-selection")
 		fcv.da.QueueDraw()
@@ -237,4 +246,34 @@ func (fcv *FlowchartView) onScrollEvent(area *gtk.DrawingArea, event *gdk.Event)
 		fcv.zoom = 0.05
 	}
 	fcv.da.QueueDraw()
+}
+
+func (fcv *FlowchartView) ensureAnimating() {
+	if fcv.animHnd == 0 && fcv.shouldAnimate() {
+		fcv.animHnd = fcv.da.AddTickCallback(fcv.animationTick, 0)
+	}
+}
+
+func (fcv *FlowchartView) animationTick(widget *gtk.Widget, frameClock *gdk.FrameClock, userData uintptr) bool {
+	fcv.animTime = frameClock.GetFrameTime()
+	if fcv.animStartTime == 0 {
+		fcv.animStartTime = fcv.animTime
+	}
+	fcv.da.QueueDraw()
+	if !fcv.shouldAnimate() {
+		fcv.da.RemoveTickCallback(fcv.animHnd)
+		fcv.animHnd = 0
+		fcv.animStartTime = 0
+		return false
+	}
+	return true
+}
+
+// shouldAnimate returns true if draw should be called repeatedly to animate
+// the flowchart view.
+func (fcv *FlowchartView) shouldAnimate() bool {
+	if sp := fcv.draggingFromPad(); sp != nil {
+		return true // Animate selected pads.
+	}
+	return false
 }
