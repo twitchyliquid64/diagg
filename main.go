@@ -47,11 +47,8 @@ func (w *Win) build() error {
 	}
 	w.fcv = fcv
 
-	on := flow.NewSNode("orphan node", "")
-	p = flow.NewSPad("test", on, flow.SideLeft, 0)
-	p.SetPadColor(0.7, 0.1, 0.1)
-	on.AppendPad(p)
-	w.fcv.AddOrphanedNode(on)
+	a := MakeAdder()
+	w.fcv.AddOrphanedNode(a)
 
 	if w.status, err = gtk.LabelNew("Nothing selected"); err != nil {
 		return err

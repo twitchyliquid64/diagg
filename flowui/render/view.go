@@ -2,6 +2,7 @@ package render
 
 import (
 	"github.com/gotk3/gotk3/cairo"
+	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/twitchyliquid64/diagg/flow"
 )
@@ -16,6 +17,12 @@ type HeadlineElement interface {
 // a thicker outline if they are currently focused.
 type FocusableElement interface {
 	Active() bool
+}
+
+// IconNode describes nodes which have an icon, and need to be rendered in
+// their center.
+type IconNode interface {
+	NodeIcon() *gdk.Pixbuf
 }
 
 type Node interface {
@@ -75,6 +82,18 @@ func (r *BasicRenderer) DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animSte
 		cr.SetFontSize(16)
 		cr.ShowText(hln.NodeHeadline())
 		cr.Fill()
+	}
+
+	if in, ok := node.(IconNode); ok {
+		pb := in.NodeIcon()
+		px, py := x-float64(pb.GetWidth())/2, y-float64(pb.GetHeight())/2
+		cr.Translate(px, py)
+		//cr.SetAntialias(cairo.ANTIALIAS_NONE)
+		gtk.GdkCairoSetSourcePixBuf(cr, pb, 0, 0)
+		cr.Paint()
+		cr.Translate(-px, -py)
+		//cr.SetAntialias(cairo.ANTIALIAS_DEFAULT)
+		cr.SetSourceRGB(1, 1, 1)
 	}
 }
 
