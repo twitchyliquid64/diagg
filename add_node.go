@@ -58,6 +58,26 @@ func (n *AddNode) NodeIcon() *gdk.Pixbuf {
 	return n.img
 }
 
+// LinkPads implements flowui.UserLinkable.
+func (n *AddNode) LinkPads(toNode flow.Node, fromPad, toPad flow.Pad) (flow.Edge, error) {
+	for _, e := range append(fromPad.StartEdges(), fromPad.EndEdges()...) {
+		switch {
+		case e.From() == fromPad && e.To() == toPad:
+			return nil, flow.ErrAlreadyLinked
+		case e.From() == toPad && e.To() == fromPad:
+			return nil, flow.ErrAlreadyLinked
+		}
+	}
+	edge := flow.NewSEdge("", fromPad, toPad)
+	if err := fromPad.ConnectTo(edge); err != nil {
+		return nil, err
+	}
+	if err := toPad.ConnectFrom(edge); err != nil {
+		return nil, err
+	}
+	return edge, nil
+}
+
 // AddButtonImg computes a plus button icon at a specific size and
 // with a given primary color.
 func AddButtonImg(x, y int) *image.RGBA {
