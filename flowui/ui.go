@@ -245,6 +245,7 @@ func (fcv *FlowchartView) onScrollEvent(area *gtk.DrawingArea, event *gdk.Event)
 	if fcv.zoom <= 0 {
 		fcv.zoom = 0.05
 	}
+	fcv.offsetX, fcv.offsetY = fcv.offsetX+amt, fcv.offsetY+amt
 	fcv.da.QueueDraw()
 }
 
