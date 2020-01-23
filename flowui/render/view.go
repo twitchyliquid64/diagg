@@ -25,6 +25,12 @@ type IconNode interface {
 	NodeIcon() *gdk.Pixbuf
 }
 
+// DecoratedNode describes nodes which can draw decorations or UI over
+// themselves.
+type DecoratedNode interface {
+	DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animStep int64, x, y float64)
+}
+
 type Node interface {
 	Pos() (float64, float64)
 	Node() flow.Node
@@ -94,6 +100,10 @@ func (r *BasicRenderer) DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animSte
 		cr.Translate(-px, -py)
 		//cr.SetAntialias(cairo.ANTIALIAS_DEFAULT)
 		cr.SetSourceRGB(1, 1, 1)
+	}
+
+	if dn, ok := node.(DecoratedNode); ok {
+		dn.DrawNode(da, cr, animStep, x, y)
 	}
 }
 
