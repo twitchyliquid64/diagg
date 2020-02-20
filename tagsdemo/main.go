@@ -9,6 +9,23 @@ import (
 	"github.com/twitchyliquid64/diagg/tags"
 )
 
+var defaultTags = []string{
+	"yeet",
+	"work",
+	"rust",
+	"embedded",
+	"crypto",
+	"TPMs",
+}
+
+func makeDefaultTags() []tags.Tag {
+	out := make([]tags.Tag, len(defaultTags))
+	for i := range defaultTags {
+		out[i] = tags.Tag{Name: defaultTags[i]}
+	}
+	return out
+}
+
 // Win encapsulates the UI state of the window.
 type Win struct {
 	win   *gtk.Window
@@ -42,6 +59,7 @@ func (w *Win) build() error {
 	if w.nte, err = tags.NewNewTagView(); err != nil {
 		return err
 	}
+	w.nte.SetSuggestions(makeDefaultTags())
 
 	// mktag.Connect("new-tag", w.onNewTag)
 
