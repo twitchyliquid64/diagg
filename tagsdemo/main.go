@@ -31,8 +31,8 @@ type Win struct {
 	win   *gtk.Window
 	tlBox *gtk.Box
 
-	nte    *tags.NewTagView
-	status *gtk.Label
+	tags *tags.TagsUI
+	nte  *tags.NewTagView
 }
 
 func (w *Win) build() error {
@@ -51,26 +51,24 @@ func (w *Win) build() error {
 	if w.tlBox, err = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 0); err != nil {
 		return err
 	}
-
-	if w.status, err = gtk.LabelNew("Nothing selected"); err != nil {
+	if w.tags, err = tags.MakeTagsView(); err != nil {
 		return err
 	}
-
-	if w.nte, err = tags.NewNewTagView(); err != nil {
+	if w.nte, err = tags.MakeNewTagView(); err != nil {
 		return err
 	}
 	w.nte.SetSuggestions(makeDefaultTags())
+	w.nte.UI().Connect("new-tag", w.onNewTag)
 
-	// mktag.Connect("new-tag", w.onNewTag)
-
-	w.tlBox.Add(w.status)
+	w.tlBox.Add(w.tags.UI())
 	w.tlBox.Add(w.nte.UI())
 	w.win.Add(w.tlBox)
 	return nil
 }
 
 func (w *Win) onNewTag() {
-
+	t := w.nte.GetNewTagName()
+	w.tags.Add(t)
 }
 
 func makeWin() (*Win, error) {

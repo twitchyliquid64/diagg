@@ -1,7 +1,6 @@
 package tags
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 
@@ -11,8 +10,8 @@ import (
 
 var newTagSig, _ = glib.SignalNew("new-tag")
 
-// NewNewTagView creates a UI element for creating views.
-func NewNewTagView() (*NewTagView, error) {
+// MakeNewTagView creates a UI element for creating views.
+func MakeNewTagView() (*NewTagView, error) {
 	v := NewTagView{}
 	var err error
 	if v.box, err = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 0); err != nil {
@@ -74,6 +73,7 @@ type NewTagView struct {
 	baseStore   *gtk.ListStore
 	filterStore *gtk.TreeModelFilter // View of baseStore where items are filtered by name.
 	currInput   string
+	lastNewTag  string
 
 	box            *gtk.Box
 	suggestionsBox *gtk.ScrolledWindow
@@ -94,14 +94,22 @@ func (v *NewTagView) UI() *gtk.Box {
 	return v.box
 }
 
+func (v *NewTagView) GetNewTagName() string {
+	return v.lastNewTag
+}
+
+func (v *NewTagView) newTag(name string) {
+	v.lastNewTag = name
+	v.input.SetText("")
+	v.box.Emit("new-tag")
+}
+
 func (v *NewTagView) onInputEnter() {
 	t, _ := v.input.GetText()
 	if t == "" {
 		return
 	}
-	fmt.Printf("New tag: %q\n", t)
-	v.input.SetText("")
-	v.box.Emit("new-tag", t)
+	v.newTag(t)
 }
 
 func (v *NewTagView) onSuggestionClicked(_ *gtk.TreeView, row *gtk.TreePath) {
@@ -110,9 +118,7 @@ func (v *NewTagView) onSuggestionClicked(_ *gtk.TreeView, row *gtk.TreePath) {
 	if i != nil {
 		text, _ := v.baseStore.GetValue(i, 0) // col 0 = tag name
 		s, _ := text.GetString()
-		fmt.Printf("New tag: %q\n", s)
-		v.input.SetText("")
-		v.box.Emit("new-tag", s)
+		v.newTag(s)
 	}
 }
 
