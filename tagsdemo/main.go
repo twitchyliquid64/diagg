@@ -46,7 +46,7 @@ func (w *Win) build() error {
 		gtk.MainQuit()
 	})
 	w.win.SetPosition(gtk.WIN_POS_CENTER)
-	w.win.SetDefaultSize(800, 600)
+	//w.win.SetDefaultSize(800, 600)
 
 	if w.tlBox, err = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 0); err != nil {
 		return err
