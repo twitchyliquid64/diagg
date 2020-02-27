@@ -35,7 +35,7 @@ func makeStyling(buffer *gtk.TextBuffer, bg *gdk.RGBA) (*gtk.CssProvider, *tagSe
 		}
     `)
 
-	var strTag, fun *gtk.TextTag
+	var strTag, fun, btk, nt, na *gtk.TextTag
 	if f := bg.Floats(); f[0] > 0.75 && f[1] > 0.75 && f[2] > 0.75 { // light background
 		strTag = buffer.CreateTag("string", map[string]interface{}{
 			"foreground": "#aa00aa",
@@ -43,12 +43,30 @@ func makeStyling(buffer *gtk.TextBuffer, bg *gdk.RGBA) (*gtk.CssProvider, *tagSe
 		fun = buffer.CreateTag("func", map[string]interface{}{
 			"foreground": "#211fd4",
 		})
+		btk = buffer.CreateTag("inlineBlock", map[string]interface{}{
+			"foreground": "#589339",
+		})
+		nt = buffer.CreateTag("nameTag", map[string]interface{}{
+			"foreground": "#418fcf",
+		})
+		na = buffer.CreateTag("nameAttr", map[string]interface{}{
+			"foreground": "#3696a2",
+		})
 	} else { // dark background / theme
 		strTag = buffer.CreateTag("string", map[string]interface{}{
 			"foreground": "#98c379",
 		})
 		fun = buffer.CreateTag("func", map[string]interface{}{
 			"foreground": "#61afef",
+		})
+		btk = buffer.CreateTag("inlineBlock", map[string]interface{}{
+			"foreground": "#98c379",
+		})
+		nt = buffer.CreateTag("nameTag", map[string]interface{}{
+			"foreground": "#61afef",
+		})
+		na = buffer.CreateTag("nameAttr", map[string]interface{}{
+			"foreground": "#56b6c2",
 		})
 	}
 
@@ -86,14 +104,8 @@ func makeStyling(buffer *gtk.TextBuffer, bg *gdk.RGBA) (*gtk.CssProvider, *tagSe
 		heading: buffer.CreateTag("heading", map[string]interface{}{
 			"foreground": "#e06c75",
 		}),
-		inlineBlock: buffer.CreateTag("inlineBlock", map[string]interface{}{
-			"foreground": "#98c379",
-		}),
-		nameTag: buffer.CreateTag("nameTag", map[string]interface{}{
-			"foreground": "#61afef",
-		}),
-		nameAttr: buffer.CreateTag("nameAttr", map[string]interface{}{
-			"foreground": "#56b6c2",
-		}),
+		inlineBlock: btk,
+		nameTag:     nt,
+		nameAttr:    na,
 	}, nil
 }
