@@ -119,7 +119,7 @@ func MakeTagsView() (*TagsUI, error) {
 	v.box.SetHExpand(false)
 	v.box.SetVExpand(false)
 	v.box.SetMaxChildrenPerLine(600)
-	v.box.SetSizeRequest(-1, 40)
+	v.box.SetSizeRequest(-1, 16)
 	v.box.SetSelectionMode(gtk.SELECTION_NONE)
 	return &v, nil
 }
