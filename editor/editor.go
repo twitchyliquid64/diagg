@@ -24,8 +24,13 @@ type Editor struct {
 	changeCB func()
 }
 
-// New creates a new editing widget.
+// New creates a new, blank editing widge.
 func New(lexer chroma.Lexer, changeCB func()) (*Editor, error) {
+	return NewWithContent(lexer, changeCB, "")
+}
+
+// NewWithContent creates a new editing widget, initialized to the provided content.
+func NewWithContent(lexer chroma.Lexer, changeCB func(), content string) (*Editor, error) {
 	editor, err := gtk.TextViewNew()
 	if err != nil {
 		return nil, err
@@ -37,6 +42,7 @@ func New(lexer chroma.Lexer, changeCB func()) (*Editor, error) {
 	if err != nil {
 		return nil, err
 	}
+	buffer.SetText(content)
 
 	style, err := editor.GetStyleContext()
 	if err != nil {
