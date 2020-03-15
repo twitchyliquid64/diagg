@@ -111,6 +111,11 @@ func (e *Editor) SetContent(content string) {
 	e.Restyle()
 }
 
+// Focus forces the editor to take focus.
+func (e *Editor) Focus() {
+	e.editor.GrabFocus()
+}
+
 // GetContent returns the contents of the editor.
 func (e *Editor) GetContent() string {
 	t, _ := e.buffer.GetText(e.buffer.GetStartIter(), e.buffer.GetEndIter(), false)

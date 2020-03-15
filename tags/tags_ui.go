@@ -31,6 +31,10 @@ func maybeInitCSS() error {
 	return tagProvider.LoadFromData(tagStyling)
 }
 
+type removeCallbackHandler interface {
+	UITagRemoved()
+}
+
 type tagView struct {
 	name   string
 	box    *gtk.Box
@@ -40,6 +44,9 @@ type tagView struct {
 
 func (tv *tagView) onRemoveClicked() {
 	tv.parent.Remove(tv.name)
+	if tv.parent.removeCB != nil {
+		tv.parent.removeCB.UITagRemoved()
+	}
 }
 
 func newTagView(name string, parent *TagsUI) (tagView, *gtk.Box) {
@@ -125,8 +132,32 @@ func MakeTagsView() (*TagsUI, error) {
 }
 
 type TagsUI struct {
-	tags []tagView
-	box  *gtk.FlowBox
+	tags     []tagView
+	box      *gtk.FlowBox
+	removeCB removeCallbackHandler
+}
+
+func (v *TagsUI) SetRemovedCallback(cb removeCallbackHandler) {
+	v.removeCB = cb
+}
+
+// Tags returns the currently set tags.
+func (v *TagsUI) Tags() []string {
+	t := make([]string, len(v.tags))
+	for i, e := range v.tags {
+		t[i] = e.name
+	}
+	return t
+}
+
+// SetTags sets the tags to the given list.
+func (v *TagsUI) SetTags(t []string) {
+	for len(v.tags) > 0 {
+		v.Remove(v.tags[0].name)
+	}
+	for _, t := range t {
+		v.Add(t)
+	}
 }
 
 func (v *TagsUI) UI() *gtk.FlowBox {
