@@ -56,6 +56,10 @@ func (v *NewTagView) UI() *gtk.Box {
 	return v.box
 }
 
+func (v *NewTagView) GrabFocus() {
+	v.input.GrabFocus()
+}
+
 func (v *NewTagView) GetNewTagName() string {
 	return v.lastNewTag
 }
