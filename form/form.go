@@ -25,8 +25,9 @@ func (w *Dialog) Run() gtk.ResponseType {
 	case gtk.RESPONSE_CANCEL, gtk.RESPONSE_REJECT, gtk.RESPONSE_CLOSE, gtk.RESPONSE_DELETE_EVENT:
 		w.Form.noSave = true
 	default:
-		w.Form.onDestroy()
+		w.Form.noSave = false
 	}
+	w.win.Destroy()
 	return result
 }
 
