@@ -18,8 +18,9 @@ type Win struct {
 
 type myForm struct {
 	Name    string
-	Coolios bool `form:"label='some input?'"`
-	Age     int  `form:"age (since birth lol)"`
+	Coolios bool   `form:"label='some input?'"`
+	Age     int    `form:"age (since birth lol)"`
+	ZZZ     uint16 `form:"uint thing"`
 }
 
 func (w *Win) build() error {

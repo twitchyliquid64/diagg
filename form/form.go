@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"strconv"
 	"strings"
 
 	"github.com/gotk3/gotk3/gtk"
@@ -73,13 +72,6 @@ type Form struct {
 	fields []formRow
 }
 
-// formRow describes a live representation of a form field.
-type formRow struct {
-	box    *gtk.Box
-	widget gtk.IWidget
-	spec   *formField
-}
-
 func (f *Form) UI() *gtk.Box {
 	return f.box
 }
@@ -95,50 +87,6 @@ func (f *Form) onDestroy() bool {
 		}
 	}
 	return false
-}
-
-func makeRow(field *formField) (*formRow, error) {
-	row, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 2)
-	if err != nil {
-		return nil, err
-	}
-	row.SetMarginTop(4)
-	lab, err := gtk.LabelNew(field.label)
-	if err != nil {
-		return nil, err
-	}
-	lab.SetHExpand(true)
-	lab.SetHAlign(gtk.ALIGN_START)
-	lab.SetXAlign(0)
-	lab.SetJustify(gtk.JUSTIFY_LEFT)
-	lab.SetMarginStart(4)
-	row.Add(lab)
-
-	fr := formRow{
-		box:  row,
-		spec: field,
-	}
-	switch fr.spec.inputType {
-	case InputText, InputInt:
-		var w *gtk.Entry
-		if w, err = gtk.EntryNew(); err != nil {
-			return nil, fmt.Errorf("new entry: %w", err)
-		}
-		w.SetMarginEnd(4)
-		fr.widget = w
-	case InputBool:
-		var w *gtk.Switch
-		if w, err = gtk.SwitchNew(); err != nil {
-			return nil, fmt.Errorf("new checkbutton: %w", err)
-		}
-		w.SetMarginEnd(4)
-		fr.widget = w
-	default:
-		return nil, fmt.Errorf("unknown inputType: %v", field.inputType)
-	}
-	row.Add(fr.widget)
-
-	return &fr, nil
 }
 
 // Build constructs a form using GTK elements.
@@ -170,48 +118,6 @@ func Build(s interface{}) (*Form, error) {
 
 	return &out, nil
 }
-
-type inputType uint8
-
-func (i inputType) Populate(w gtk.IWidget, val reflect.Value) error {
-	switch i {
-	case InputText:
-		w.(*gtk.Entry).SetText(val.String())
-	case InputBool:
-		w.(*gtk.Switch).SetActive(val.Bool())
-	case InputInt:
-		w.(*gtk.Entry).SetText(fmt.Sprint(val.Int()))
-	default:
-		return fmt.Errorf("unknown input type: %v", i)
-	}
-
-	return nil
-}
-
-func (i inputType) Apply(w gtk.IWidget, val reflect.Value) error {
-	switch i {
-	case InputText:
-		t, _ := w.(*gtk.Entry).GetText()
-		val.SetString(t)
-	case InputBool:
-		val.SetBool(w.(*gtk.Switch).GetActive())
-	case InputInt:
-		t, _ := w.(*gtk.Entry).GetText()
-		num, _ := strconv.ParseInt(t, 10, 64)
-		val.SetInt(num)
-	default:
-		return fmt.Errorf("unknown input type: %v", i)
-	}
-
-	return nil
-}
-
-// Valid input types.
-const (
-	InputText inputType = iota
-	InputBool
-	InputInt
-)
 
 // formField describes a single field within a form.
 type formField struct {
@@ -268,6 +174,8 @@ func interpretStruct(s interface{}) (*formDef, error) {
 			ff.inputType = InputText
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			ff.inputType = InputInt
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			ff.inputType = InputUint
 		}
 
 		fields = append(fields, &ff)

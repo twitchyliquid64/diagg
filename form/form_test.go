@@ -23,12 +23,14 @@ func TestInterpretStruct(t *testing.T) {
 				Skipped string `form:"-"`
 				Alt     string `form:"lazy label"`
 				Quoted  int    `form:"label='b'"`
+				Uint    uint16
 			}{},
 			formDef{
 				fields: []*formField{
 					{label: "moose", tagSpec: tagSpec{label: "moose", terms: []string{"yeet"}}},
 					{label: "lazy label", tagSpec: tagSpec{terms: []string{"lazy", "label"}}},
 					{label: "b", tagSpec: tagSpec{label: "b"}, inputType: InputInt},
+					{label: "Uint", inputType: InputUint},
 				},
 			},
 		},
