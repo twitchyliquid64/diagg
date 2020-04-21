@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/gotk3/gotk3/gtk"
@@ -197,11 +198,13 @@ const (
 	termNormal nextTermType = iota
 	termLabel
 	termExplain
+	termWidth
 )
 
 type tagSpec struct {
 	label   string
 	explain string
+	width   int
 	terms   []string
 }
 
@@ -224,6 +227,8 @@ func (s *tagSpec) push(term string, kind nextTermType) {
 		s.terms = append(s.terms, term)
 	case termExplain:
 		s.explain = term
+	case termWidth:
+		s.width, _ = strconv.Atoi(term)
 	}
 }
 
@@ -264,6 +269,9 @@ func parseTags(inp string) tagSpec {
 				accumulator = ""
 			case "explain=":
 				nextTerm = termExplain
+				accumulator = ""
+			case "width=":
+				nextTerm = termWidth
 				accumulator = ""
 			}
 		}

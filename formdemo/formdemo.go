@@ -17,7 +17,7 @@ type Win struct {
 }
 
 type myForm struct {
-	Name    string
+	Name    string `form:"width=35"`
 	Coolios bool   `form:"label='some input?'"`
 	Age     int    `form:"age (since birth lol)"`
 	ZZZ     uint16 `form:"explain='some nonsense'"`

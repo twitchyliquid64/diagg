@@ -110,6 +110,9 @@ func makeRow(field *formField) (*formRow, error) {
 			return nil, fmt.Errorf("new entry: %w", err)
 		}
 		w.SetMarginEnd(4)
+		if field.tagSpec.width > 0 {
+			w.SetWidthChars(field.tagSpec.width)
+		}
 		w.Connect("changed", fr.onEntryChanged)
 		fr.widget = w
 	case InputBool:
