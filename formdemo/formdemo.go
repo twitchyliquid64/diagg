@@ -20,7 +20,7 @@ type myForm struct {
 	Name    string
 	Coolios bool   `form:"label='some input?'"`
 	Age     int    `form:"age (since birth lol)"`
-	ZZZ     uint16 `form:"uint thing"`
+	ZZZ     uint16 `form:"explain='some nonsense'"`
 }
 
 func (w *Win) build() error {
@@ -71,13 +71,13 @@ func main() {
 
 	gtk.Main()
 	fmt.Printf("Output: %+v\n", w.data)
-
-	p, err := form.Popup("Other window!!", w.data)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "FormPopup() failed: %v\n", err)
-		os.Exit(1)
-	}
-	p.Run()
-
-	fmt.Printf("Output: %+v\n", w.data)
+	//
+	// p, err := form.Popup("Other window!!", w.data)
+	// if err != nil {
+	// 	fmt.Fprintf(os.Stderr, "FormPopup() failed: %v\n", err)
+	// 	os.Exit(1)
+	// }
+	// p.Run()
+	//
+	// fmt.Printf("Output: %+v\n", w.data)
 }

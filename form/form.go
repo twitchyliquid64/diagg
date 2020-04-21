@@ -91,6 +91,10 @@ func (f *Form) onDestroy() bool {
 
 // Build constructs a form using GTK elements.
 func Build(s interface{}) (*Form, error) {
+	if err := maybeInitCSS(); err != nil {
+		return nil, err
+	}
+
 	spec, err := interpretStruct(s)
 	if err != nil {
 		return nil, err
@@ -123,6 +127,7 @@ func Build(s interface{}) (*Form, error) {
 type formField struct {
 	tagSpec tagSpec
 	label   string
+	explain string
 
 	field     reflect.Value
 	fieldType reflect.StructField
@@ -160,6 +165,7 @@ func interpretStruct(s interface{}) (*formDef, error) {
 		ff := formField{
 			tagSpec:   ts,
 			label:     ts.Label(),
+			explain:   ts.explain,
 			field:     v.Field(i),
 			fieldType: t.Field(i),
 		}
@@ -190,11 +196,13 @@ type nextTermType uint8
 const (
 	termNormal nextTermType = iota
 	termLabel
+	termExplain
 )
 
 type tagSpec struct {
-	label string
-	terms []string
+	label   string
+	explain string
+	terms   []string
 }
 
 func (s *tagSpec) Label() string {
@@ -214,6 +222,8 @@ func (s *tagSpec) push(term string, kind nextTermType) {
 		s.label = term
 	case termNormal:
 		s.terms = append(s.terms, term)
+	case termExplain:
+		s.explain = term
 	}
 }
 
@@ -251,6 +261,9 @@ func parseTags(inp string) tagSpec {
 			switch accumulator {
 			case "label=":
 				nextTerm = termLabel
+				accumulator = ""
+			case "explain=":
+				nextTerm = termExplain
 				accumulator = ""
 			}
 		}

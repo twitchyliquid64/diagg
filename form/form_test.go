@@ -23,14 +23,14 @@ func TestInterpretStruct(t *testing.T) {
 				Skipped string `form:"-"`
 				Alt     string `form:"lazy label"`
 				Quoted  int    `form:"label='b'"`
-				Uint    uint16
+				Uint    uint16 `form:"explain='waht is this lol'"`
 			}{},
 			formDef{
 				fields: []*formField{
 					{label: "moose", tagSpec: tagSpec{label: "moose", terms: []string{"yeet"}}},
 					{label: "lazy label", tagSpec: tagSpec{terms: []string{"lazy", "label"}}},
 					{label: "b", tagSpec: tagSpec{label: "b"}, inputType: InputInt},
-					{label: "Uint", inputType: InputUint},
+					{label: "Uint", explain: "waht is this lol", tagSpec: tagSpec{explain: "waht is this lol"}, inputType: InputUint},
 				},
 			},
 		},
@@ -51,6 +51,9 @@ func TestInterpretStruct(t *testing.T) {
 
 			if !reflect.DeepEqual(got, &tc.want) {
 				t.Errorf("interpretStruct() = %v, want %v", got, tc.want)
+				for i := range got.fields {
+					t.Logf("field[%d] = %v", i, got.fields[i])
+				}
 			}
 		})
 	}
