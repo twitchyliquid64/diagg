@@ -1,11 +1,15 @@
 package form
 
 import (
+	"errors"
 	"fmt"
+	"reflect"
 	"strconv"
 
 	"github.com/gotk3/gotk3/gtk"
 )
+
+var errType = reflect.TypeOf((*error)(nil)).Elem()
 
 // formRow describes a live representation of a form field.
 type formRow struct {
@@ -45,9 +49,33 @@ func (r *formRow) SetValidationText(text string) error {
 
 func (r *formRow) onEntryChanged() {
 	t, _ := r.widget.(*gtk.Entry).GetText()
-	err := r.spec.inputType.Validate(t)
-	if scErr, ok := err.(*strconv.NumError); ok {
-		err = scErr.Err
+
+	var err error
+	if r.spec.customValidator != nil {
+		out := r.spec.customValidator.Call([]reflect.Value{reflect.ValueOf(t)})
+		if len(out) > 0 {
+			switch out[0].Kind() {
+			case reflect.Bool:
+				if !out[0].Bool() {
+					err = errors.New("validation failed")
+				}
+			case reflect.String:
+				if s := out[0].String(); s != "" {
+					err = errors.New(s)
+				}
+			case reflect.Interface:
+				if out[0].Type().Implements(errType) && !out[0].IsNil() {
+					err = out[0].Interface().(error)
+				}
+			}
+		}
+	}
+
+	if err == nil {
+		err = r.spec.inputType.Validate(t)
+		if scErr, ok := err.(*strconv.NumError); ok {
+			err = scErr.Err
+		}
 	}
 
 	if err != nil {

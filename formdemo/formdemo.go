@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/twitchyliquid64/diagg/form"
@@ -17,10 +19,24 @@ type Win struct {
 }
 
 type myForm struct {
-	Name    string `form:"width=35"`
+	Name    string `form:"width=30,validator=ValidateName"`
 	Coolios bool   `form:"label='some input?'"`
-	Age     int    `form:"age (since birth lol)"`
+	Age     int    `form:"label='age (since birth lol)' validator_func=ValidateAge"`
 	ZZZ     uint16 `form:"explain='some nonsense'"`
+}
+
+func (f *myForm) ValidateName(input string) error {
+	if strings.ToUpper(input) == "JOHN" {
+		return errors.New("NOPE")
+	}
+	return nil
+}
+
+func (f *myForm) ValidateAge(input string) string {
+	if strings.HasPrefix(input, "-") {
+		return "Age can't be negative!"
+	}
+	return ""
 }
 
 func (w *Win) build() error {

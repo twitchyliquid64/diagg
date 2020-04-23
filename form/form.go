@@ -133,7 +133,8 @@ type formField struct {
 	field     reflect.Value
 	fieldType reflect.StructField
 
-	inputType inputType
+	inputType       inputType
+	customValidator *reflect.Value
 }
 
 // formDef describes a form.
@@ -185,6 +186,14 @@ func interpretStruct(s interface{}) (*formDef, error) {
 			ff.inputType = InputUint
 		}
 
+		if ts.validatorFunc != "" {
+			if ff.inputType == InputBool {
+				return nil, errors.New("custom validators are not supported on bool types")
+			}
+			mbn := reflect.ValueOf(s).MethodByName(ts.validatorFunc)
+			ff.customValidator = &mbn
+		}
+
 		fields = append(fields, &ff)
 	}
 	return &formDef{
@@ -199,13 +208,15 @@ const (
 	termLabel
 	termExplain
 	termWidth
+	termValidatorFunc
 )
 
 type tagSpec struct {
-	label   string
-	explain string
-	width   int
-	terms   []string
+	label         string
+	explain       string
+	validatorFunc string
+	width         int
+	terms         []string
 }
 
 func (s *tagSpec) Label() string {
@@ -229,6 +240,8 @@ func (s *tagSpec) push(term string, kind nextTermType) {
 		s.explain = term
 	case termWidth:
 		s.width, _ = strconv.Atoi(term)
+	case termValidatorFunc:
+		s.validatorFunc = term
 	}
 }
 
@@ -256,7 +269,7 @@ func parseTags(inp string) tagSpec {
 			inQuotes = true
 			quoteChar = '\''
 
-		case !inQuotes && c == ' ': // End of term
+		case !inQuotes && (c == ',' || c == ' '): // End of term
 			out.push(accumulator, nextTerm)
 			accumulator = ""
 			nextTerm = termNormal
@@ -272,6 +285,9 @@ func parseTags(inp string) tagSpec {
 				accumulator = ""
 			case "width=":
 				nextTerm = termWidth
+				accumulator = ""
+			case "validator=", "validator_func=":
+				nextTerm = termValidatorFunc
 				accumulator = ""
 			}
 		}
