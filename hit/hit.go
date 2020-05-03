@@ -55,6 +55,24 @@ type Area struct {
 	buckets [][]bucket
 }
 
+// Delete removes an object from the hit testing arena.
+func (a *Area) Delete(obj TestableObj) {
+	for _, x := range a.buckets {
+		for _, b := range x {
+			idx := -1
+			for i := range b.objs {
+				if b.objs[i].obj == obj {
+					idx = i
+					break
+				}
+			}
+			if idx >= 0 {
+				b.objs = append(b.objs[:idx], b.objs[idx+1:]...)
+			}
+		}
+	}
+}
+
 // Add inserts the given object into the hit testing area.
 func (a *Area) Add(min, max Point, obj TestableObj) {
 	minX, minY := a.mapToBucket(min)

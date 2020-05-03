@@ -25,6 +25,37 @@ func (sp *SPad) StartEdges() []Edge {
 func (sp *SPad) EndEdges() []Edge {
 	return sp.endEdges
 }
+func (sp *SPad) Disconnect(del Edge) {
+	var delIdx []int
+	for i, e := range sp.startEdges {
+		if e.EdgeID() == del.EdgeID() {
+			delIdx = append(delIdx, i)
+		}
+	}
+	for _, idx := range delIdx {
+		sp.startEdges = append(sp.startEdges[:idx], sp.startEdges[idx+1:]...)
+	}
+
+	delIdx = []int{}
+	for i, e := range sp.endEdges {
+		if e.EdgeID() == del.EdgeID() {
+			delIdx = append(delIdx, i)
+		}
+	}
+	for _, idx := range delIdx {
+		sp.endEdges = append(sp.endEdges[:idx], sp.endEdges[idx+1:]...)
+	}
+}
+func (sp *SPad) DisconnectAll() {
+	for _, e := range sp.startEdges {
+		e.Disconnect()
+	}
+	sp.startEdges = nil
+	for _, e := range sp.endEdges {
+		e.Disconnect()
+	}
+	sp.startEdges = nil
+}
 
 func (sp *SPad) ConnectTo(e Edge) error {
 	if e.To() == sp {

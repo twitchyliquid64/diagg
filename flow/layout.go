@@ -1,5 +1,12 @@
 package flow
 
+import (
+	"errors"
+)
+
+// ErrIsRoot is returned if deletion of the root node is attempted.
+var ErrIsRoot = errors.New("cannot delete the root node")
+
 // NodeLayout describes the layout state of a flowchart node.
 type NodeLayout struct {
 	X, Y float64
@@ -26,20 +33,21 @@ func (fps *PadLayout) Pos() (float64, float64) {
 
 // NewLayout constructs a new layout controller, to keep track of the position
 // and compute the draw order of flowchart nodes.
-func NewLayout(root Node) *Layout {
+func NewLayout() *Layout {
 	return &Layout{
-		root:  root,
-		nodes: map[string]*NodeLayout{},
-		pads:  map[string]*PadLayout{},
+		allNodes: map[string]Node{},
+		nodes:    map[string]*NodeLayout{},
+		pads:     map[string]*PadLayout{},
 	}
 }
 
 // Layout keeps track of state describing how elements of a flowchart
 // should be positioned.
 type Layout struct {
-	root  Node
-	nodes map[string]*NodeLayout
-	pads  map[string]*PadLayout
+	root     Node
+	allNodes map[string]Node
+	nodes    map[string]*NodeLayout
+	pads     map[string]*PadLayout
 }
 
 type positionable interface {
@@ -131,12 +139,53 @@ func (fl *Layout) MoveNode(n Node, x, y float64) {
 		nl.Y = y
 	} else {
 		fl.nodes[nID] = &NodeLayout{X: x, Y: y}
+		fl.allNodes[nID] = n
 	}
 
 	// As pad position is dependent on node position, force recomputation.
 	for _, p := range n.Pads() {
 		fl.padPosRecompute(p)
 	}
+}
+
+// DeleteNode removes a node from the layout, destroying all edges to other
+// nodes in the layout.
+func (fl *Layout) DeleteNode(n Node) {
+	nID := n.NodeID()
+	if fl.root != nil && nID == fl.root.NodeID() {
+		fl.findNewRoot()
+	}
+
+	delete(fl.nodes, nID)
+	delete(fl.allNodes, nID)
+
+	for _, p := range n.Pads() {
+		p.DisconnectAll()
+		delete(fl.pads, p.PadID())
+	}
+}
+
+func (fl *Layout) findNewRoot() {
+	// Try and select a root adjacent to the existing root if there is one.
+	if fl.root != nil {
+		for _, p := range fl.root.Pads() {
+			for _, e := range p.StartEdges() {
+				if fl.root.NodeID() != e.To().Parent().NodeID() {
+					fl.root = e.To().Parent()
+					return
+				}
+			}
+		}
+	}
+	// Otherwise, anything will do.
+	for nID, n := range fl.allNodes {
+		if fl.root != nil && nID == fl.root.NodeID() {
+			continue
+		}
+		fl.root = n
+		return
+	}
+	fl.root = nil
 }
 
 func (fl *Layout) Node(n Node) *NodeLayout {
@@ -146,6 +195,7 @@ func (fl *Layout) Node(n Node) *NodeLayout {
 	}
 	nl := &NodeLayout{}
 	fl.nodes[nID] = nl
+	fl.allNodes[nID] = n
 	return nl
 }
 
@@ -185,15 +235,34 @@ func (fl *Layout) Pad(p Pad) *PadLayout {
 }
 
 func (fl *Layout) DisplayList() (min, max [2]float64, dl []DrawCommand, err error) {
+	if fl.root == nil {
+		fl.findNewRoot()
+	}
+	if fl.root == nil {
+		// No nodes to render.
+		return [2]float64{}, [2]float64{}, nil, nil
+	}
+
 	b := &bounds{}
 	b.update(fl.nodes[fl.root.NodeID()], fl.root)
 
-	dl, err = fl.populateDrawListNode(make([]DrawCommand, 0, 256), fl.root, dlState{
+	state := dlState{
 		renderedNodes: make(map[string]struct{}, 4+len(fl.nodes)),
 		renderedPads:  make(map[string]struct{}, 12+len(fl.pads)),
 		renderedEdges: make(map[string]struct{}, 32),
 		bounds:        b,
-	})
+	}
+
+	dl, err = fl.populateDrawListNode(make([]DrawCommand, 0, 256), fl.root, state)
+	if err != nil {
+		return [2]float64{}, [2]float64{}, nil, err
+	}
+
+	// Run through the full list again to make sure we have any orphaned nodes.
+	for _, n := range fl.allNodes {
+		dl, err = fl.populateDrawListNode(dl, n, state)
+	}
+
 	return [2]float64{b.minX, b.minY}, [2]float64{b.maxY, b.maxY}, dl, err
 }
 

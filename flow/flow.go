@@ -32,6 +32,8 @@ type Pad interface {
 
 	StartEdges() []Edge
 	EndEdges() []Edge
+	Disconnect(del Edge)
+	DisconnectAll()
 
 	ConnectTo(Edge) error
 	ConnectFrom(Edge) error
@@ -42,6 +44,7 @@ type Edge interface {
 	EdgeID() string
 	From() Pad
 	To() Pad
+	Disconnect()
 }
 
 var ErrSelfLink = errors.New("cannot link to self")

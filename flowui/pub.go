@@ -56,21 +56,43 @@ func NewFlowchartView(l *flow.Layout) (*FlowchartView, *gtk.DrawingArea, error) 
 	return fcv, fcv.da, err
 }
 
-// AddOrphanedNode inserts a new node into the layout and view, unconnected to
-// any other nodes.
-func (fcv *FlowchartView) AddOrphanedNode(n flow.Node) {
-	w, h := n.Size()
-	x, y := (fcv.offsetX-float64(fcv.width)+w/2)/fcv.zoom, (fcv.offsetY-float64(fcv.height)+h/2)/fcv.zoom
-	fcv.model.l.MoveNode(n, x, y)
+// AddNode inserts a new node into the layout and view.
+func (fcv *FlowchartView) AddNode(n flow.Node, x, y float64) error {
+	pos := fcv.drawCoordsToFlow(x, y)
+	fcv.model.l.MoveNode(n, pos.X, pos.Y)
 
-	fcv.model.orphans = append(fcv.model.orphans, flow.DrawNodeCmd{
-		Layout: fcv.model.l.Node(n),
-		Node:   n,
-	})
+	if err := fcv.model.buildDrawList(); err != nil {
+		return err
+	}
 	fcv.model.buildModel()
 	fcv.da.QueueDraw()
+	return nil
 }
 
+// DeleteNode removes a node from the flowchart, breaking all links.
+func (fcv *FlowchartView) DeleteNode(n flow.Node) error {
+	if mn, ok := fcv.model.nodeState[n.NodeID()]; ok {
+		fcv.model.h.Delete(mn)
+		delete(fcv.model.nodeState, n.NodeID())
+	}
+	for _, p := range n.Pads() {
+		if mn, ok := fcv.model.nodeState[p.PadID()]; ok {
+			fcv.model.h.Delete(mn)
+		}
+		delete(fcv.model.nodeState, p.PadID())
+	}
+
+	fcv.model.l.DeleteNode(n)
+	if err := fcv.model.buildDrawList(); err != nil {
+		return err
+	}
+	fcv.model.buildModel()
+	fcv.da.QueueDraw()
+
+	return nil
+}
+
+// GetSelection returns the currently selected node or pad.
 func (fcv *FlowchartView) GetSelection() interface{} {
 	switch t := fcv.lmc.target.(type) {
 	case *rectNode:
@@ -82,4 +104,29 @@ func (fcv *FlowchartView) GetSelection() interface{} {
 	default:
 		panic(fmt.Sprintf("cannot handle type: %T", t))
 	}
+}
+
+// GetAtPosition returns the pad or node at the given position, or nil if
+// the provided position was empty space.
+func (fcv *FlowchartView) GetAtPosition(x, y float64) interface{} {
+	tp := fcv.drawCoordsToFlow(x, y)
+
+	if t := fcv.model.HitTest(tp); t != nil {
+		switch m := t.(type) {
+		case *rectNode:
+			return m.Node()
+		case *circPad:
+			return m.Pad()
+		case nil:
+			return nil
+		default:
+			panic(fmt.Sprintf("cannot handle type: %T", m))
+		}
+	}
+	return nil
+}
+
+// AddOverlay installs the provided overlay.
+func (fcv *FlowchartView) AddOverlay(o Overlay) {
+	fcv.overlays = append(fcv.overlays, o)
 }

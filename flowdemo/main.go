@@ -5,17 +5,23 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/twitchyliquid64/diagg/flow"
 	ui "github.com/twitchyliquid64/diagg/flowui"
+	"github.com/twitchyliquid64/diagg/flowui/overlays"
 )
 
 // Win encapsulates the UI state of the window.
 type Win struct {
 	win   *gtk.Window
 	tlBox *gtk.Box
+	tools *overlays.ToolOverlay
+
+	selected flow.Node
 
 	fcv    *ui.FlowchartView
+	canvas *gtk.DrawingArea
 	status *gtk.Label
 }
 
@@ -36,19 +42,18 @@ func (w *Win) build() error {
 		return err
 	}
 
-	root := flow.NewSNode("test node", "")
-	p := flow.NewSPad("test", root, flow.SideRight, 0)
-	p.SetPadColor(0.1, 0.55, 0.1)
-	root.AppendPad(p)
-	l := flow.NewLayout(root)
+	// root := flow.NewSNode("test node", "")
+	// p := flow.NewSPad("test", root, flow.SideRight, 0)
+	// p.SetPadColor(0.1, 0.55, 0.1)
+	// root.AppendPad(p)
+	l := flow.NewLayout()
 	fcv, fcvRoot, err := ui.NewFlowchartView(l)
 	if err != nil {
 		return err
 	}
 	w.fcv = fcv
-
-	a := MakeAdder()
-	w.fcv.AddOrphanedNode(a)
+	w.fcv.AddOverlay(w.tools)
+	w.canvas = fcvRoot
 
 	if w.status, err = gtk.LabelNew("Nothing selected"); err != nil {
 		return err
@@ -59,6 +64,22 @@ func (w *Win) build() error {
 	w.tlBox.Add(w.status)
 	w.tlBox.Add(fcvRoot)
 	w.win.Add(w.tlBox)
+	return w.setupKeyBindings()
+}
+
+func (w *Win) setupKeyBindings() error {
+	// TODO: Refactor this into some configurable mapping.
+	w.win.Connect("key-press-event", func(win *gtk.Window, ev *gdk.Event) {
+		keyEvent := &gdk.EventKey{Event: ev}
+		if w.tools.HandleKeypress(keyEvent) {
+			w.canvas.QueueDraw()
+		}
+		if keyEvent.KeyVal() == gdk.KEY_Delete && w.selected != nil {
+			w.fcv.DeleteNode(w.selected)
+			w.selected = nil
+			w.status.SetText("Nothing selected")
+		}
+	})
 	return nil
 }
 
@@ -69,10 +90,42 @@ func (w *Win) onFlowSelect() {
 	} else {
 		w.status.SetText(fmt.Sprintf("Selected %T: %+v", sel, sel))
 	}
+
+	if n, ok := sel.(flow.Node); ok {
+		w.selected = n
+	} else {
+		w.selected = nil
+	}
 }
 
 func makeWin() (*Win, error) {
 	w := &Win{}
+
+	// Color the close image specially.
+	closeImg := binaryImage(CloseButtonImg(48, 48))
+	p := closeImg.GetPixels()
+	for i := 0; i < len(p); i += 4 {
+		p[i] = 200
+		p[i+1] = 15
+		p[i+2] = 15
+	}
+
+	tools := []overlays.Tool{
+		{Icon: binaryImage(AddButtonImg(48, 48)), Drop: func(x, y float64) {
+			w.fcv.AddNode(MakeAdder(), x, y)
+		}},
+		{Icon: binaryImage(TabImg(48, 48)), Drop: func(x, y float64) {
+			fmt.Printf("Screen dragged to %v,%v\n", x, y)
+		}},
+		{},
+		{Icon: closeImg, Drop: func(x, y float64) {
+			if n, wasNode := w.fcv.GetAtPosition(x, y).(flow.Node); wasNode {
+				w.fcv.DeleteNode(n)
+			}
+		}},
+	}
+
+	w.tools = overlays.Toolbar(false, tools)
 	if err := w.build(); err != nil {
 		return nil, err
 	}

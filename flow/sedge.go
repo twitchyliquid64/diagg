@@ -17,6 +17,13 @@ func (se *SEdge) To() Pad {
 	return se.to
 }
 
+func (se *SEdge) Disconnect() {
+	se.to.Disconnect(se)
+	se.from.Disconnect(se)
+	se.to = nil
+	se.from = nil
+}
+
 func NewSEdge(t string, from, to Pad) *SEdge {
 	return &SEdge{
 		id:   AllocEdgeID(t),

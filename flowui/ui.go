@@ -12,6 +12,7 @@ import (
 
 const posQuant = 16
 
+// dragState tracks the state of mouse movement for a mouse button.
 type dragState struct {
 	StartX, StartY float64
 	DragX, DragY   float64
@@ -21,6 +22,22 @@ type dragState struct {
 	ObjX, ObjY float64
 	target     hit.TestableObj
 	sqDist     float64
+}
+
+// Overlay visual elements drawn over the top of the flowchart.
+type Overlay interface {
+	// Configure is called when the width/height of the drawing area is updated.
+	Configure(w, h int)
+	// HandleMotionEvent is called on move movement. If the event should be
+	// intercepted and not processed by the flowchart, HandleMotionEvent() should
+	// return true.
+	HandleMotionEvent(*gdk.EventMotion) bool
+	// HandlePressEvent is called on move presses. If the event should be
+	// intercepted and not processed by the flowchart, HandleMotionEvent() should
+	// return true.
+	HandlePressEvent(evt *gdk.Event, press bool) bool
+	// Draw is called to draw the overlay.
+	Draw(da *gtk.DrawingArea, cr *cairo.Context)
 }
 
 type FlowchartView struct {
@@ -42,13 +59,17 @@ type FlowchartView struct {
 	// width/height of the drawing area.
 	width, height int
 
-	model Model
+	model    Model
+	overlays []Overlay
 }
 
 func (fcv *FlowchartView) onCanvasConfigureEvent(da *gtk.DrawingArea, event *gdk.Event) bool {
 	ce := gdk.EventConfigureNewFromEvent(event)
 	fcv.width = ce.Width()
 	fcv.height = ce.Height()
+	for _, o := range fcv.overlays {
+		o.Configure(fcv.width, fcv.height)
+	}
 	return false
 }
 
@@ -68,6 +89,12 @@ func (fcv *FlowchartView) onCanvasDrawEvent(da *gtk.DrawingArea, cr *cairo.Conte
 		if rn, ok := fcv.lmc.target.(*circPad); ok {
 			fcv.drawDragLink(da, cr, rn)
 		}
+	}
+	cr.Restore()
+
+	cr.Save()
+	for _, o := range fcv.overlays {
+		o.Draw(da, cr)
 	}
 	cr.Restore()
 
@@ -100,6 +127,13 @@ func (fcv *FlowchartView) drawCoordsToFlow(x, y float64) hit.Point {
 
 func (fcv *FlowchartView) onMotionEvent(area *gtk.DrawingArea, event *gdk.Event) {
 	evt := gdk.EventMotionNewFromEvent(event)
+
+	for _, o := range fcv.overlays {
+		if o.HandleMotionEvent(evt) {
+			return
+		}
+	}
+
 	x, y := evt.MotionVal()
 	rebuildHits := false
 
@@ -163,6 +197,12 @@ func quantizeCoords(x, y float64) (float64, float64) {
 }
 
 func (fcv *FlowchartView) onPressEvent(area *gtk.DrawingArea, event *gdk.Event) {
+	for _, o := range fcv.overlays {
+		if o.HandlePressEvent(event, true) {
+			return
+		}
+	}
+
 	evt := gdk.EventButtonNewFromEvent(event)
 	x, y := evt.MotionVal()
 	switch evt.Button() {
@@ -206,6 +246,12 @@ func (fcv *FlowchartView) draggingFromPad() *circPad {
 }
 
 func (fcv *FlowchartView) onReleaseEvent(area *gtk.DrawingArea, event *gdk.Event) {
+	for _, o := range fcv.overlays {
+		if o.HandlePressEvent(event, false) {
+			return
+		}
+	}
+
 	evt := gdk.EventButtonNewFromEvent(event)
 	x, y := gdk.EventMotionNewFromEvent(event).MotionVal()
 	releaseTarget := fcv.model.HitTest(fcv.drawCoordsToFlow(x, y))

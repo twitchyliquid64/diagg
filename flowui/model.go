@@ -25,8 +25,6 @@ type Model struct {
 	displayList []flow.DrawCommand
 	// Maps node/pad ID to state.
 	nodeState map[string]modelNode
-	// Orphaned nodes (ie: not connected to the graph, just placed)
-	orphans []flow.DrawCommand
 
 	// performance metrics
 	drawTime  averageMetric
@@ -139,20 +137,6 @@ func (m *Model) buildModel() {
 		}
 	}
 
-	for _, o := range m.orphans {
-		switch c := o.(type) {
-		case flow.DrawNodeCmd:
-			m.insertNodeObj(c, m.h)
-			for _, p := range c.Node.Pads() {
-				m.insertPadObj(flow.DrawPadCmd{
-					Layout: m.l.Pad(p),
-					Pad:    p,
-				}, m.h)
-			}
-		default:
-			panic("cannot handle unexpected orphan command")
-		}
-	}
 	m.mkHitTime.Time(started)
 }
 
@@ -166,15 +150,6 @@ func (m *Model) Draw(da *gtk.DrawingArea, cr *cairo.Context, animStep int64) {
 			m.r.DrawPad(da, cr, animStep, m.nodeState[c.Pad.PadID()].(*circPad))
 		case flow.DrawEdgeCmd:
 			m.r.DrawEdge(da, cr, animStep, m.nodeState[c.Edge.EdgeID()].(*lineEdge))
-		}
-	}
-	for _, cmd := range m.orphans {
-		switch c := cmd.(type) {
-		case flow.DrawNodeCmd:
-			m.r.DrawNode(da, cr, animStep, m.nodeState[c.Node.NodeID()].(*rectNode))
-			for _, p := range c.Node.Pads() {
-				m.r.DrawPad(da, cr, animStep, m.nodeState[p.PadID()].(*circPad))
-			}
 		}
 	}
 	m.drawTime.Time(started)
@@ -209,13 +184,8 @@ func (m *Model) OnUserLinksPads(startPad, endPad *circPad) error {
 			return err
 		}
 		// At this stage the two pads have had an edge allocated and been
-		// successfully connected. If either node were previously orphaned,
-		// they will need to be removed from the orphan list as they are now
-		// connected.
-		m.removeNodeOrphan(fromNode)
-		m.removeNodeOrphan(toNode)
-		// Lastly, we rebuild the display list to account for the new edge
-		// and any decendant links.
+		// successfully connected. Lastly, we rebuild the display list to account
+		// for the new edge and any decendant links.
 		if err := m.buildDrawList(); err != nil {
 			return err
 		}
@@ -224,24 +194,6 @@ func (m *Model) OnUserLinksPads(startPad, endPad *circPad) error {
 	}
 
 	return ErrNodeNotLinkable
-}
-
-// removeNode Orphan removes a node from the orphan list, usually due to the
-// node becoming attached to the flowchart via a newly-created edge. True is
-// returned if the orphan was found and hence removed.
-func (m *Model) removeNodeOrphan(n flow.Node) bool {
-	idx := -1
-	for i := 0; i < len(m.orphans); i++ {
-		if mn, ok := m.orphans[i].(flow.DrawNodeCmd); ok && mn.Node == n {
-			idx = i
-			break
-		}
-	}
-	if idx >= 0 {
-		m.orphans = append(m.orphans[:idx], m.orphans[:idx+1]...)
-		return true
-	}
-	return false
 }
 
 func (m *Model) HitTest(p hit.Point) hit.TestableObj {

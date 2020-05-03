@@ -49,8 +49,7 @@ func (p circPad) Pad() flow.Pad { return p.P }
 
 func (p circPad) Active() bool { return p.active }
 
-// HitTest returns true as rectangles should be completely represented
-// by their min/max points tracked by the hit tester.
+// HitTest returns true if the point is within the circle.
 func (p circPad) HitTest(tp hit.Point) bool {
 	centerX, centerY := p.Pos()
 	distSq := math.Pow(tp.X-centerX, 2) + math.Pow(tp.Y-centerY, 2)
