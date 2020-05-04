@@ -59,7 +59,8 @@ func NewFlowchartView(l *flow.Layout) (*FlowchartView, *gtk.DrawingArea, error) 
 // AddNode inserts a new node into the layout and view.
 func (fcv *FlowchartView) AddNode(n flow.Node, x, y float64) error {
 	pos := fcv.drawCoordsToFlow(x, y)
-	fcv.model.l.MoveNode(n, pos.X, pos.Y)
+	x, y = quantizeCoords(pos.X, pos.Y)
+	fcv.model.l.MoveNode(n, x, y)
 
 	if err := fcv.model.buildDrawList(); err != nil {
 		return err
