@@ -3,7 +3,24 @@ package main
 import (
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/twitchyliquid64/diagg/flow"
+	"github.com/twitchyliquid64/diagg/flowui/render"
 )
+
+type AddDec struct {
+	img *gdk.Pixbuf
+}
+
+func (d *AddDec) NodeIcon() *gdk.Pixbuf {
+	return d.img
+}
+
+func (d *AddDec) NodeColor() (float64, float64, float64) {
+	return 0.12, 0.22, 0.12
+}
+
+func (d *AddDec) NodeOverlayDraw() render.DrawFunc {
+	return nil
+}
 
 func MakeAdder() *AddNode {
 	rawImg := AddButtonImg(55, 55)
@@ -25,6 +42,10 @@ type AddNode struct {
 	inL *flow.SPad
 	inR *flow.SPad
 	out *flow.SPad
+}
+
+func (n *AddNode) NodeDecorator() render.NodeDecorator {
+	return &AddDec{img: n.img}
 }
 
 func (n *AddNode) NodeID() string {

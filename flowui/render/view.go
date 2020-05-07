@@ -7,6 +7,8 @@ import (
 	"github.com/twitchyliquid64/diagg/flow"
 )
 
+type DrawFunc func(da *gtk.DrawingArea, cr *cairo.Context, animStep int64, x, y float64)
+
 // HeadlineElement describes nodes which have text labels which should
 // be rendered.
 type HeadlineElement interface {
@@ -19,16 +21,17 @@ type FocusableElement interface {
 	Active() bool
 }
 
-// IconNode describes nodes which have an icon, and need to be rendered in
-// their center.
-type IconNode interface {
+// NodeDecorator describes types which provide information about how to
+// draw nodes.
+type NodeDecorator interface {
 	NodeIcon() *gdk.Pixbuf
+	NodeColor() (float64, float64, float64)
+	NodeOverlayDraw() DrawFunc
 }
 
-// DecoratedNode describes nodes which can draw decorations or UI over
-// themselves.
+// DecoratedNode describes nodes which provide decoration information.
 type DecoratedNode interface {
-	DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animStep int64, x, y float64)
+	NodeDecorator() NodeDecorator
 }
 
 type Node interface {
@@ -66,6 +69,7 @@ func (r *BasicRenderer) isFocused(n interface{}) bool {
 func (r *BasicRenderer) DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animStep int64, n Node) {
 	var (
 		node                     = n.Node()
+		dec, isDec               = node.(DecoratedNode)
 		x, y             float64 = n.Pos()
 		w, h             float64 = node.Size()
 		hw, hh           float64 = w / 2, h / 2
@@ -79,7 +83,12 @@ func (r *BasicRenderer) DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animSte
 	cr.SetLineWidth(borderWidth)
 	roundedRect(da, cr, x-hw, y-hh, w-sub, h-sub, 2)
 	cr.StrokePreserve()
-	cr.SetSourceRGB(0.5, 0.1, 0.1)
+	if isDec {
+		r, g, b := dec.NodeDecorator().NodeColor()
+		cr.SetSourceRGB(r, g, b)
+	} else {
+		cr.SetSourceRGB(0.5, 0.1, 0.1)
+	}
 	cr.Fill()
 
 	if hln, ok := node.(HeadlineElement); ok {
@@ -90,8 +99,9 @@ func (r *BasicRenderer) DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animSte
 		cr.Fill()
 	}
 
-	if in, ok := node.(IconNode); ok {
-		pb := in.NodeIcon()
+	if isDec {
+		nd := dec.NodeDecorator()
+		pb := nd.NodeIcon()
 		px, py := x-float64(pb.GetWidth())/2, y-float64(pb.GetHeight())/2
 		cr.Translate(px, py)
 		//cr.SetAntialias(cairo.ANTIALIAS_NONE)
@@ -100,10 +110,11 @@ func (r *BasicRenderer) DrawNode(da *gtk.DrawingArea, cr *cairo.Context, animSte
 		cr.Translate(-px, -py)
 		//cr.SetAntialias(cairo.ANTIALIAS_DEFAULT)
 		cr.SetSourceRGB(1, 1, 1)
-	}
 
-	if dn, ok := node.(DecoratedNode); ok {
-		dn.DrawNode(da, cr, animStep, x, y)
+		d := nd.NodeOverlayDraw()
+		if d != nil {
+			d(da, cr, animStep, x, y)
+		}
 	}
 }
 
