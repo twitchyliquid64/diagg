@@ -188,6 +188,7 @@ func (fl *Layout) findNewRoot() {
 	fl.root = nil
 }
 
+// Node returns the object storing the position of a node.
 func (fl *Layout) Node(n Node) *NodeLayout {
 	nID := n.NodeID()
 	if nl, ok := fl.nodes[nID]; ok {
@@ -197,6 +198,23 @@ func (fl *Layout) Node(n Node) *NodeLayout {
 	fl.nodes[nID] = nl
 	fl.allNodes[nID] = n
 	return nl
+}
+
+type NodePosition struct {
+	Pos  NodeLayout
+	Node Node
+}
+
+// Dump returns a list of all nodes and their positions.
+func (fl *Layout) Dump() []NodePosition {
+	out := make([]NodePosition, 0, len(fl.allNodes))
+	for _, n := range fl.allNodes {
+		out = append(out, NodePosition{
+			Node: n,
+			Pos:  *fl.Node(n),
+		})
+	}
+	return out
 }
 
 func (fl *Layout) padPosRecompute(p Pad) *PadLayout {
@@ -234,6 +252,8 @@ func (fl *Layout) Pad(p Pad) *PadLayout {
 	return fl.padPosRecompute(p)
 }
 
+// DisplayList returns a list of drawing commands for rendering the layout.
+// The bounds of all objects in the layout are also returned.
 func (fl *Layout) DisplayList() (min, max [2]float64, dl []DrawCommand, err error) {
 	if fl.root == nil {
 		fl.findNewRoot()
