@@ -24,10 +24,14 @@ func (se *SEdge) Disconnect() {
 	se.from = nil
 }
 
-func NewSEdge(t string, from, to Pad) *SEdge {
+func NewSEdgeWithID(id string, from, to Pad) *SEdge {
 	return &SEdge{
-		id:   AllocEdgeID(t),
+		id:   id,
 		from: from,
 		to:   to,
 	}
+}
+
+func NewSEdge(t string, from, to Pad) *SEdge {
+	return NewSEdgeWithID(AllocEdgeID(t), from, to)
 }
