@@ -93,6 +93,11 @@ func (fcv *FlowchartView) DeleteNode(n flow.Node) error {
 	return nil
 }
 
+func (fcv *FlowchartView) ClearSelection() {
+	fcv.model.SetTargetActive(fcv.lmc.target, false)
+	fcv.da.QueueDraw()
+}
+
 // GetSelection returns the currently selected node or pad.
 func (fcv *FlowchartView) GetSelection() interface{} {
 	switch t := fcv.lmc.target.(type) {
