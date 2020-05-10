@@ -20,15 +20,20 @@ type Dialog struct {
 
 // Run blocks until the dialog is closed.
 func (w *Dialog) Run() gtk.ResponseType {
-	result := w.win.Run()
-	switch result {
-	case gtk.RESPONSE_CANCEL, gtk.RESPONSE_REJECT, gtk.RESPONSE_CLOSE, gtk.RESPONSE_DELETE_EVENT:
-		w.Form.noSave = true
-	default:
-		w.Form.noSave = false
+	for {
+		result := w.win.Run()
+		switch result {
+		case gtk.RESPONSE_CANCEL, gtk.RESPONSE_REJECT, gtk.RESPONSE_CLOSE, gtk.RESPONSE_DELETE_EVENT:
+			w.Form.noSave = true
+		default:
+			if !w.Form.Valid() {
+				continue
+			}
+			w.Form.noSave = false
+		}
+		w.win.Destroy()
+		return result
 	}
-	w.win.Destroy()
-	return result
 }
 
 func (w *Dialog) closePressed() bool {
@@ -70,7 +75,16 @@ type Form struct {
 	noSave bool
 	box    *gtk.Box
 	spec   *formDef
-	fields []formRow
+	fields []*formRow
+}
+
+func (f *Form) Valid() bool {
+	for _, r := range f.fields {
+		if r.validationFailed {
+			return false
+		}
+	}
+	return true
 }
 
 func (f *Form) UI() *gtk.Box {
@@ -102,7 +116,7 @@ func Build(s interface{}) (*Form, error) {
 	}
 	out := Form{
 		spec:   spec,
-		fields: make([]formRow, 0, len(spec.fields)),
+		fields: make([]*formRow, 0, len(spec.fields)),
 	}
 	if out.box, err = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 2); err != nil {
 		return nil, err
@@ -118,7 +132,7 @@ func Build(s interface{}) (*Form, error) {
 		if err := field.inputType.Populate(row.widget, field.field); err != nil {
 			return nil, fmt.Errorf("populating initial value for row %d: %w", i, err)
 		}
-		out.fields = append(out.fields, *row)
+		out.fields = append(out.fields, row)
 	}
 
 	return &out, nil

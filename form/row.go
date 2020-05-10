@@ -17,8 +17,9 @@ type formRow struct {
 	tb      *gtk.Box
 	errText *gtk.Label
 
-	widget gtk.IWidget
-	spec   *formField
+	widget           gtk.IWidget
+	spec             *formField
+	validationFailed bool
 }
 
 func (r *formRow) SetValidationText(text string) error {
@@ -50,6 +51,16 @@ func (r *formRow) SetValidationText(text string) error {
 func (r *formRow) onEntryChanged() {
 	t, _ := r.widget.(*gtk.Entry).GetText()
 
+	err := r.validateText(t)
+
+	if err != nil {
+		r.SetValidationText(err.Error())
+	} else {
+		r.SetValidationText("")
+	}
+}
+
+func (r *formRow) validateText(t string) error {
 	var err error
 	if r.spec.customValidator != nil {
 		out := r.spec.customValidator.Call([]reflect.Value{reflect.ValueOf(t)})
@@ -77,12 +88,8 @@ func (r *formRow) onEntryChanged() {
 			err = scErr.Err
 		}
 	}
-
-	if err != nil {
-		r.SetValidationText(err.Error())
-	} else {
-		r.SetValidationText("")
-	}
+	r.validationFailed = err != nil
+	return err
 }
 
 func makeRow(field *formField) (*formRow, error) {
@@ -126,7 +133,7 @@ func makeRow(field *formField) (*formRow, error) {
 	}
 	row.Add(tb)
 
-	fr := formRow{
+	fr := &formRow{
 		box:  row,
 		spec: field,
 		tb:   tb,
@@ -155,5 +162,5 @@ func makeRow(field *formField) (*formRow, error) {
 	}
 	row.Add(fr.widget)
 
-	return &fr, nil
+	return fr, nil
 }
