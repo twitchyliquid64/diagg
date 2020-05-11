@@ -59,8 +59,9 @@ type FlowchartView struct {
 	// width/height of the drawing area.
 	width, height int
 
-	model    Model
-	overlays []Overlay
+	model         Model
+	overlays      []Overlay
+	doublePressCB func(t interface{}, x, y float64) // Callback for double-click.
 }
 
 func (fcv *FlowchartView) onCanvasConfigureEvent(da *gtk.DrawingArea, event *gdk.Event) bool {
@@ -205,31 +206,41 @@ func (fcv *FlowchartView) onPressEvent(area *gtk.DrawingArea, event *gdk.Event) 
 
 	evt := gdk.EventButtonNewFromEvent(event)
 	x, y := evt.MotionVal()
-	switch evt.Button() {
-	case 1: // left mouse button.
-		fcv.model.SetTargetActive(fcv.lmc.target, false)
-		fcv.lmc.dragging = true
-		fcv.lmc.StartX, fcv.lmc.StartY = x, y
-		tp := fcv.drawCoordsToFlow(x, y)
-
-		// If we clicked on a node/pad, update the selection state and set the
-		// element as active.
-		if fcv.lmc.target = fcv.model.HitTest(tp); fcv.lmc.target != nil {
-			fcv.lmc.ObjX, fcv.lmc.ObjY = fcv.model.TargetPos(fcv.lmc.target)
-			fcv.lmc.DragX, fcv.lmc.DragY = fcv.lmc.ObjX, fcv.lmc.ObjY
-			fcv.model.SetTargetActive(fcv.lmc.target, true)
-
-			// If the target is a pad, we should animate the hover circles.
-			if _, isPad := fcv.lmc.target.(*circPad); isPad {
-				fcv.ensureAnimating()
+	switch evt.Type() {
+	case gdk.EVENT_2BUTTON_PRESS:
+		switch evt.Button() {
+		case 1: // left mouse button.
+			if fcv.doublePressCB != nil {
+				fcv.doublePressCB(fcv.GetSelection(), x, y)
 			}
 		}
-		fcv.da.Emit("flow-selection")
-		fcv.da.QueueDraw()
+	case gdk.EVENT_BUTTON_PRESS:
+		switch evt.Button() {
+		case 1: // left mouse button.
+			fcv.model.SetTargetActive(fcv.lmc.target, false)
+			fcv.lmc.dragging = true
+			fcv.lmc.StartX, fcv.lmc.StartY = x, y
+			tp := fcv.drawCoordsToFlow(x, y)
 
-	case 2, 3: // middle,right button
-		fcv.pan.dragging = true
-		fcv.pan.StartX, fcv.pan.StartY = x-fcv.offsetX, y-fcv.offsetY
+			// If we clicked on a node/pad, update the selection state and set the
+			// element as active.
+			if fcv.lmc.target = fcv.model.HitTest(tp); fcv.lmc.target != nil {
+				fcv.lmc.ObjX, fcv.lmc.ObjY = fcv.model.TargetPos(fcv.lmc.target)
+				fcv.lmc.DragX, fcv.lmc.DragY = fcv.lmc.ObjX, fcv.lmc.ObjY
+				fcv.model.SetTargetActive(fcv.lmc.target, true)
+
+				// If the target is a pad, we should animate the hover circles.
+				if _, isPad := fcv.lmc.target.(*circPad); isPad {
+					fcv.ensureAnimating()
+				}
+			}
+			fcv.da.Emit("flow-selection")
+			fcv.da.QueueDraw()
+
+		case 2, 3: // middle,right button
+			fcv.pan.dragging = true
+			fcv.pan.StartX, fcv.pan.StartY = x-fcv.offsetX, y-fcv.offsetY
+		}
 	}
 }
 

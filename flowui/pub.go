@@ -136,3 +136,9 @@ func (fcv *FlowchartView) GetAtPosition(x, y float64) interface{} {
 func (fcv *FlowchartView) AddOverlay(o Overlay) {
 	fcv.overlays = append(fcv.overlays, o)
 }
+
+// SetDoubleClickCallback sets a callback to be invoked when a\
+// double-click happens with mouse button one.
+func (fcv *FlowchartView) SetDoubleClickCallback(cb func(interface{}, float64, float64)) {
+	fcv.doublePressCB = cb
+}

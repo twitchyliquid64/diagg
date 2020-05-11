@@ -53,6 +53,9 @@ func (w *Win) build() error {
 	}
 	w.fcv = fcv
 	w.fcv.AddOverlay(w.tools)
+	w.fcv.SetDoubleClickCallback(func(obj interface{}, x, y float64) {
+		fmt.Printf("double-click: %v at (%v,%v)\n", obj, x, y)
+	})
 	w.canvas = fcvRoot
 
 	if w.status, err = gtk.LabelNew("Nothing selected"); err != nil {
