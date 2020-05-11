@@ -86,12 +86,17 @@ func (fcv *FlowchartView) DeleteNode(n flow.Node) error {
 	}
 
 	fcv.model.l.DeleteNode(n)
+	return fcv.Rebuild()
+}
+
+// Rebuild discards all internal state, rebuilding the view internals from
+// the layout.
+func (fcv *FlowchartView) Rebuild() error {
 	if err := fcv.model.buildDrawList(); err != nil {
 		return err
 	}
 	fcv.model.buildModel()
 	fcv.da.QueueDraw()
-
 	return nil
 }
 
