@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strconv"
 
+	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 )
 
@@ -17,7 +18,9 @@ type formRow struct {
 	tb      *gtk.Box
 	errText *gtk.Label
 
-	widget           gtk.IWidget
+	widget     gtk.IWidget
+	comboModel *gtk.ListStore
+
 	spec             *formField
 	validationFailed bool
 }
@@ -138,29 +141,59 @@ func makeRow(field *formField) (*formRow, error) {
 		spec: field,
 		tb:   tb,
 	}
-	switch fr.spec.inputType {
-	case InputText, InputInt, InputUint:
-		var w *gtk.Entry
-		if w, err = gtk.EntryNew(); err != nil {
-			return nil, fmt.Errorf("new entry: %w", err)
-		}
-		w.SetMarginEnd(4)
-		if field.tagSpec.width > 0 {
-			w.SetWidthChars(field.tagSpec.width)
-		}
-		w.Connect("changed", fr.onEntryChanged)
-		fr.widget = w
-	case InputBool:
-		var w *gtk.Switch
-		if w, err = gtk.SwitchNew(); err != nil {
-			return nil, fmt.Errorf("new checkbutton: %w", err)
-		}
-		w.SetMarginEnd(4)
-		fr.widget = w
-	default:
-		return nil, fmt.Errorf("unknown inputType: %v", field.inputType)
-	}
-	row.Add(fr.widget)
 
+	switch field.tagSpec.kind {
+	case kindCombo:
+		if fr.comboModel, err = gtk.ListStoreNew(glib.TYPE_STRING); err != nil {
+			return nil, err
+		}
+		for _, o := range field.tagSpec.comboOptions {
+			iter := fr.comboModel.Append()
+			if err = fr.comboModel.Set(iter, []int{0}, []interface{}{o}); err != nil {
+				return nil, err
+			}
+		}
+		cb, err := gtk.ComboBoxNewWithModel(fr.comboModel)
+		if err != nil {
+			return nil, err
+		}
+		cell, err := gtk.CellRendererTextNew()
+		if err != nil {
+			return nil, err
+		}
+		cb.PackStart(cell, false)
+		cb.AddAttribute(cell, "text", 0) // column index = 0
+		cb.SetMarginEnd(4)
+		if field.tagSpec.width > 0 {
+			cb.SetSizeRequest(8*field.tagSpec.width, -1)
+		}
+		fr.widget = cb
+
+	case kindDefault:
+		switch fr.spec.inputType {
+		case InputText, InputInt, InputUint:
+			var w *gtk.Entry
+			if w, err = gtk.EntryNew(); err != nil {
+				return nil, fmt.Errorf("new entry: %w", err)
+			}
+			w.SetMarginEnd(4)
+			if field.tagSpec.width > 0 {
+				w.SetWidthChars(field.tagSpec.width)
+			}
+			w.Connect("changed", fr.onEntryChanged)
+			fr.widget = w
+		case InputBool:
+			var w *gtk.Switch
+			if w, err = gtk.SwitchNew(); err != nil {
+				return nil, fmt.Errorf("new checkbutton: %w", err)
+			}
+			w.SetMarginEnd(4)
+			fr.widget = w
+		default:
+			return nil, fmt.Errorf("unknown inputType: %v", field.inputType)
+		}
+	}
+
+	row.Add(fr.widget)
 	return fr, nil
 }

@@ -34,6 +34,20 @@ func TestInterpretStruct(t *testing.T) {
 				},
 			},
 		},
+		{
+			"combo",
+			struct {
+				Type string `form:"kind=combo label=moose option=a option='thing b'"`
+			}{},
+			formDef{
+				fields: []*formField{{label: "moose", tagSpec: tagSpec{
+					label:        "moose",
+					kind:         kindCombo,
+					comboOptions: []string{"a", "thing b"},
+				},
+				}},
+			},
+		},
 	}
 
 	for _, tc := range tcs {

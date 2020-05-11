@@ -97,7 +97,7 @@ func (f *Form) onDestroy() bool {
 	}
 
 	for i, field := range f.fields {
-		if err := field.spec.inputType.Apply(field.widget, field.spec.field); err != nil {
+		if err := field.spec.inputType.Apply(field, field.spec.field); err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to apply value from field %d: %v\n", i, err)
 		}
 	}
@@ -129,7 +129,7 @@ func Build(s interface{}) (*Form, error) {
 			return nil, fmt.Errorf("failed making row %d: %w", i, err)
 		}
 		out.box.Add(row.box)
-		if err := field.inputType.Populate(row.widget, field.field); err != nil {
+		if err := field.inputType.Populate(row, field.field); err != nil {
 			return nil, fmt.Errorf("populating initial value for row %d: %w", i, err)
 		}
 		out.fields = append(out.fields, row)
@@ -223,14 +223,27 @@ const (
 	termExplain
 	termWidth
 	termValidatorFunc
+	termKind
+	termOption
+)
+
+type fieldKind uint8
+
+const (
+	kindDefault fieldKind = iota // entry for string, toggle for bool.
+	kindCombo
 )
 
 type tagSpec struct {
 	label         string
 	explain       string
+	kind          fieldKind
 	validatorFunc string
-	width         int
-	terms         []string
+
+	comboOptions []string
+	width        int
+
+	terms []string
 }
 
 func (s *tagSpec) Label() string {
@@ -256,6 +269,13 @@ func (s *tagSpec) push(term string, kind nextTermType) {
 		s.width, _ = strconv.Atoi(term)
 	case termValidatorFunc:
 		s.validatorFunc = term
+	case termKind:
+		switch term {
+		case "combo":
+			s.kind = kindCombo
+		}
+	case termOption:
+		s.comboOptions = append(s.comboOptions, term)
 	}
 }
 
@@ -302,6 +322,12 @@ func parseTags(inp string) tagSpec {
 				accumulator = ""
 			case "validator=", "validator_func=":
 				nextTerm = termValidatorFunc
+				accumulator = ""
+			case "control=", "kind=":
+				nextTerm = termKind
+				accumulator = ""
+			case "o=", "option=":
+				nextTerm = termOption
 				accumulator = ""
 			}
 		}

@@ -23,6 +23,7 @@ type myForm struct {
 	Coolios bool   `form:"label='some input?'"`
 	Age     int    `form:"label='age (since birth lol)' validator_func=ValidateAge"`
 	ZZZ     uint16 `form:"explain='some nonsense'"`
+	Select  string `form:"width=30,kind=combo,o=a,o='thing b'"`
 }
 
 func (f *myForm) ValidateName(input string) error {
@@ -66,6 +67,7 @@ func makeWin() (*Win, error) {
 			Name:    "swiggity",
 			Coolios: true,
 			Age:     23,
+			Select:  "thing b",
 		},
 	}
 	if err := w.build(); err != nil {
@@ -87,13 +89,20 @@ func main() {
 
 	gtk.Main()
 	fmt.Printf("Output: %+v\n", w.data)
+
+	// d := &myForm{
+	// 	Name:    "swiggity",
+	// 	Coolios: true,
+	// 	Age:     23,
+	// 	Select:  "thing b",
+	// }
 	//
-	// p, err := form.Popup("Other window!!", w.data)
+	// p, err := form.Popup("Other window!!", d)
 	// if err != nil {
 	// 	fmt.Fprintf(os.Stderr, "FormPopup() failed: %v\n", err)
 	// 	os.Exit(1)
 	// }
 	// p.Run()
 	//
-	// fmt.Printf("Output: %+v\n", w.data)
+	// fmt.Printf("Output: %+v\n", d)
 }

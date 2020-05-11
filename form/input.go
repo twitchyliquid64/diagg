@@ -12,9 +12,60 @@ import (
 
 type inputType uint8
 
-func (i inputType) Populate(w gtk.IWidget, val reflect.Value) error {
+func setCombo(r *formRow, c *gtk.ComboBox, val string) error {
+	if val == "" {
+		return nil
+	}
+	l, ok := r.comboModel.GetIterFirst()
+	if !ok {
+		return nil
+	}
+
+	for i := 0; true; i++ {
+		v, err := r.comboModel.GetValue(l, 0)
+		if err != nil {
+			return err
+		}
+		s, err := v.GetString()
+		if err != nil {
+			return err
+		}
+		if s == val {
+			c.SetActive(i)
+			return nil
+		}
+		if !r.comboModel.IterNext(l) {
+			break
+		}
+	}
+
+	return fmt.Errorf("no combo option %q", val)
+}
+
+func applyCombo(r *formRow, c *gtk.ComboBox, val reflect.Value) error {
+	iter, err := c.GetActiveIter()
+	if err != nil {
+		return err
+	}
+	gv, err := r.comboModel.GetValue(iter, 0)
+	if err != nil {
+		return err
+	}
+	s, err := gv.GoValue()
+	if err != nil {
+		return err
+	}
+	val.SetString(s.(string))
+	return nil
+}
+
+func (i inputType) Populate(r *formRow, val reflect.Value) error {
+	w := r.widget
 	switch i {
 	case InputText:
+		if c, isCombo := w.(*gtk.ComboBox); isCombo {
+			return setCombo(r, c, val.String())
+		}
 		w.(*gtk.Entry).SetText(val.String())
 	case InputBool:
 		w.(*gtk.Switch).SetActive(val.Bool())
@@ -29,9 +80,13 @@ func (i inputType) Populate(w gtk.IWidget, val reflect.Value) error {
 	return nil
 }
 
-func (i inputType) Apply(w gtk.IWidget, val reflect.Value) error {
+func (i inputType) Apply(r *formRow, val reflect.Value) error {
+	w := r.widget
 	switch i {
 	case InputText:
+		if c, isCombo := w.(*gtk.ComboBox); isCombo {
+			return applyCombo(r, c, val)
+		}
 		t, _ := w.(*gtk.Entry).GetText()
 		val.SetString(t)
 	case InputBool:
