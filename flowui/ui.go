@@ -287,6 +287,10 @@ func (fcv *FlowchartView) onReleaseEvent(area *gtk.DrawingArea, event *gdk.Event
 	}
 }
 
+func (fcv *FlowchartView) onLeftFocus(area *gtk.DrawingArea, event *gdk.Event) {
+	fcv.lmc.dragging = false
+}
+
 func (fcv *FlowchartView) onScrollEvent(area *gtk.DrawingArea, event *gdk.Event) {
 	evt := gdk.EventScrollNewFromEvent(event)
 	amt := evt.DeltaY() / 20

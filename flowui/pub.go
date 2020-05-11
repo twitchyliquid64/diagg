@@ -44,10 +44,12 @@ func NewFlowchartView(l *flow.Layout) (*FlowchartView, *gtk.DrawingArea, error) 
 	fcv.da.Connect("button-press-event", fcv.onPressEvent)
 	fcv.da.Connect("button-release-event", fcv.onReleaseEvent)
 	fcv.da.Connect("scroll-event", fcv.onScrollEvent)
+	fcv.da.Connect("leave-notify-event", fcv.onLeftFocus)
 	fcv.da.SetEvents(int(gdk.POINTER_MOTION_MASK |
 		gdk.BUTTON_PRESS_MASK |
 		gdk.BUTTON_RELEASE_MASK |
-		gdk.SCROLL_MASK)) // GDK_MOTION_NOTIFY
+		gdk.SCROLL_MASK |
+		gdk.LEAVE_NOTIFY_MASK)) // GDK_MOTION_NOTIFY
 
 	err = fcv.model.initRenderState()
 
