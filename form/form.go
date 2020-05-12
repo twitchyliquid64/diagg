@@ -56,7 +56,7 @@ func Popup(title string, s interface{}) (*Dialog, error) {
 		return nil, err
 	}
 	w.win.SetTitle(title)
-	w.win.AddButton("Save", gtk.RESPONSE_ACCEPT)
+	b, _ := w.win.AddButton("Save", gtk.RESPONSE_ACCEPT)
 	w.win.AddButton("Cancel", gtk.RESPONSE_CANCEL)
 	w.win.Connect("destroy", w.closePressed)
 	w.win.SetPosition(gtk.WIN_POS_CENTER)
@@ -64,6 +64,13 @@ func Popup(title string, s interface{}) (*Dialog, error) {
 	ca, err := w.win.GetContentArea()
 	if err != nil {
 		return nil, err
+	}
+	for _, row := range f.fields {
+		if entry, isEntry := row.widget.(*gtk.Entry); isEntry {
+			entry.Connect("activate", func() {
+				b.Activate()
+			})
+		}
 	}
 	ca.Add(f.UI())
 	w.win.ShowAll()
