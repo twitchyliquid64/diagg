@@ -23,7 +23,11 @@ type myForm struct {
 	Coolios bool   `form:"label='some input?'"`
 	Age     int    `form:"label='age (since birth lol)' validator_func=ValidateAge"`
 	ZZZ     uint16 `form:"explain='some nonsense'"`
-	Select  string `form:"width=30,kind=combo,o=a,o='thing b'"`
+	Select  string `form:"width=30,kind=combo,combo_func=Options'"`
+}
+
+func (f *myForm) Options() []string {
+	return []string{"a", "thing b", "wuttt"}
 }
 
 func (f *myForm) ValidateName(input string) error {

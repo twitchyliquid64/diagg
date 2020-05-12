@@ -153,6 +153,17 @@ func makeRow(field *formField) (*formRow, error) {
 				return nil, err
 			}
 		}
+
+		if field.comboFunc != nil {
+			v := field.comboFunc.Call(nil)
+			for i := 0; i < v[0].Len(); i++ {
+				iter := fr.comboModel.Append()
+				if err = fr.comboModel.Set(iter, []int{0}, []interface{}{v[0].Index(i).String()}); err != nil {
+					return nil, err
+				}
+			}
+		}
+
 		cb, err := gtk.ComboBoxNewWithModel(fr.comboModel)
 		if err != nil {
 			return nil, err

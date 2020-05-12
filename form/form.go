@@ -149,6 +149,7 @@ type formField struct {
 
 	inputType       inputType
 	customValidator *reflect.Value
+	comboFunc       *reflect.Value
 }
 
 // formDef describes a form.
@@ -201,11 +202,18 @@ func interpretStruct(s interface{}) (*formDef, error) {
 		}
 
 		if ts.validatorFunc != "" {
-			if ff.inputType == InputBool {
-				return nil, errors.New("custom validators are not supported on bool types")
+			if ff.inputType == InputBool || ff.tagSpec.kind == kindCombo {
+				return nil, errors.New("custom validators are not supported on bool types or combo fields")
 			}
 			mbn := reflect.ValueOf(s).MethodByName(ts.validatorFunc)
 			ff.customValidator = &mbn
+		}
+		if ts.comboFunc != "" {
+			if ff.tagSpec.kind != kindCombo {
+				return nil, errors.New("combo func defined on non-combo field")
+			}
+			f := reflect.ValueOf(s).MethodByName(ts.comboFunc)
+			ff.comboFunc = &f
 		}
 
 		fields = append(fields, &ff)
@@ -225,6 +233,7 @@ const (
 	termValidatorFunc
 	termKind
 	termOption
+	termComboFunc
 )
 
 type fieldKind uint8
@@ -235,10 +244,12 @@ const (
 )
 
 type tagSpec struct {
-	label         string
-	explain       string
-	kind          fieldKind
+	label   string
+	explain string
+	kind    fieldKind
+
 	validatorFunc string
+	comboFunc     string
 
 	comboOptions []string
 	width        int
@@ -269,6 +280,8 @@ func (s *tagSpec) push(term string, kind nextTermType) {
 		s.width, _ = strconv.Atoi(term)
 	case termValidatorFunc:
 		s.validatorFunc = term
+	case termComboFunc:
+		s.comboFunc = term
 	case termKind:
 		switch term {
 		case "combo":
@@ -322,6 +335,9 @@ func parseTags(inp string) tagSpec {
 				accumulator = ""
 			case "validator=", "validator_func=":
 				nextTerm = termValidatorFunc
+				accumulator = ""
+			case "combo=", "combo_func=":
+				nextTerm = termComboFunc
 				accumulator = ""
 			case "control=", "kind=":
 				nextTerm = termKind
