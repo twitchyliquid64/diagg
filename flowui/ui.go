@@ -294,6 +294,7 @@ func (fcv *FlowchartView) onLeftFocus(area *gtk.DrawingArea, event *gdk.Event) {
 func (fcv *FlowchartView) onScrollEvent(area *gtk.DrawingArea, event *gdk.Event) {
 	evt := gdk.EventScrollNewFromEvent(event)
 	amt := evt.DeltaY() / 20
+	x, y := evt.X(), evt.Y()
 	if amt == 0 {
 		amt = 0.05
 	}
@@ -303,11 +304,15 @@ func (fcv *FlowchartView) onScrollEvent(area *gtk.DrawingArea, event *gdk.Event)
 		amt *= -1
 	}
 
+	mouse := fcv.drawCoordsToFlow(x, y)
 	fcv.zoom += amt
-	if fcv.zoom <= 0 {
-		fcv.zoom = 0.05
+	if fcv.zoom <= 0.15 {
+		fcv.zoom = 0.15
 	}
-	fcv.offsetX, fcv.offsetY = fcv.offsetX+amt, fcv.offsetY+amt
+	after := fcv.drawCoordsToFlow(x, y)
+
+	fcv.offsetX -= (mouse.X - after.X) * fcv.zoom
+	fcv.offsetY -= (mouse.Y - after.Y) * fcv.zoom
 	fcv.da.QueueDraw()
 }
 
