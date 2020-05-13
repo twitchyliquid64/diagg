@@ -9,7 +9,6 @@ import (
 const (
 	boxSize       = 48
 	lineThickness = 1
-	topOffset     = 3
 )
 
 type Tool struct {
@@ -22,12 +21,15 @@ type Tool struct {
 type ToolOverlay struct {
 	w, h        int
 	boxWidth    float64
+	boxHeight   float64
 	leftBound   float64
 	rightBound  float64
+	topBound    float64
 	bottomBound float64
 
-	showSelection bool
-	Tools         []Tool
+	showSelection    bool
+	Tools            []Tool
+	anchorX, anchorY float64
 
 	selection      int
 	dragging       bool
@@ -40,6 +42,21 @@ func Toolbar(selectable bool, tools []Tool) *ToolOverlay {
 		selection:     -1,
 		showSelection: selectable,
 		Tools:         tools,
+		anchorX:       0.5,
+		anchorY:       0,
+	}
+}
+
+// ToolbarAtAnchor contructs a tool overlay from the given tools, anchored
+// at the specified X and Y ratios. If yAnchor is zero, the toolbar will
+// be pinned to the top of the flowchart.
+func ToolbarAtAnchor(selectable bool, tools []Tool, xAnchor, yAnchor float64) *ToolOverlay {
+	return &ToolOverlay{
+		selection:     -1,
+		showSelection: selectable,
+		Tools:         tools,
+		anchorX:       xAnchor,
+		anchorY:       yAnchor,
 	}
 }
 
@@ -64,7 +81,7 @@ func (o *ToolOverlay) HandlePressEvent(event *gdk.Event, press bool) bool {
 		o.dragging = false
 	}
 
-	if x < o.leftBound || x > o.rightBound || y > o.bottomBound || y < topOffset {
+	if x < o.leftBound || x > o.rightBound || y > o.bottomBound || y < o.topBound {
 		return false
 	}
 
@@ -83,11 +100,11 @@ func (o *ToolOverlay) Draw(da *gtk.DrawingArea, cr *cairo.Context) {
 	cr.SetLineWidth(lineThickness)
 
 	cr.NewPath()
-	cr.MoveTo(o.leftBound, topOffset)
-	cr.LineTo(float64(o.w)-o.leftBound, topOffset)
-	cr.LineTo(float64(o.w)-o.leftBound, topOffset+boxSize+lineThickness*2)
-	cr.LineTo(o.leftBound, topOffset+boxSize+lineThickness*2)
-	cr.LineTo(o.leftBound, topOffset)
+	cr.MoveTo(o.leftBound, o.topBound)
+	cr.LineTo(float64(o.w)-o.leftBound, o.topBound)
+	cr.LineTo(float64(o.w)-o.leftBound, o.topBound+o.boxHeight)
+	cr.LineTo(o.leftBound, o.topBound+o.boxHeight)
+	cr.LineTo(o.leftBound, o.topBound)
 	cr.ClosePath()
 	cr.StrokePreserve()
 	cr.SetSourceRGB(0.12, 0.12, 0.12)
@@ -96,14 +113,14 @@ func (o *ToolOverlay) Draw(da *gtk.DrawingArea, cr *cairo.Context) {
 	cr.SetSourceRGB(0.3, 0.3, 0.3)
 	for i := 1; i < len(o.Tools); i++ {
 		x := o.leftBound + float64(i*(lineThickness+boxSize))
-		cr.MoveTo(x, topOffset)
-		cr.LineTo(x, topOffset+boxSize+lineThickness*2)
+		cr.MoveTo(x, o.topBound)
+		cr.LineTo(x, o.topBound+o.boxHeight)
 	}
 	cr.Stroke()
 
 	for i, t := range o.Tools {
 		if t.Icon != nil {
-			x, y := o.leftBound+float64(i*(lineThickness+boxSize)), float64(topOffset)
+			x, y := o.leftBound+float64(i*(lineThickness+boxSize)), float64(o.topBound)
 			cr.Translate(x, y)
 			gtk.GdkCairoSetSourcePixBuf(cr, t.Icon, 0, 0)
 			cr.Paint()
@@ -115,10 +132,10 @@ func (o *ToolOverlay) Draw(da *gtk.DrawingArea, cr *cairo.Context) {
 		cr.SetSourceRGB(1, 1, 1)
 		x := o.leftBound + float64(s*(lineThickness+boxSize))
 		cr.NewPath()
-		cr.MoveTo(x, topOffset)
-		cr.LineTo(x+boxSize, topOffset)
-		cr.LineTo(x+boxSize, topOffset+boxSize+lineThickness*2)
-		cr.LineTo(x, topOffset+boxSize+lineThickness*2)
+		cr.MoveTo(x, o.topBound)
+		cr.LineTo(x+boxSize, o.topBound)
+		cr.LineTo(x+boxSize, o.topBound+o.boxHeight)
+		cr.LineTo(x, o.topBound+o.boxHeight)
 		cr.ClosePath()
 		cr.Stroke()
 	}
@@ -146,16 +163,29 @@ func (o *ToolOverlay) Draw(da *gtk.DrawingArea, cr *cairo.Context) {
 }
 
 func (o *ToolOverlay) mouseInCanvas() bool {
-	return o.mouseX > o.rightBound || o.mouseX < o.leftBound || o.mouseY > o.bottomBound
+	return o.mouseX > o.rightBound || o.mouseX < o.leftBound || o.mouseY > o.bottomBound || o.mouseY < o.topBound
 }
 
 // Configure implements flowui.Overlay.
 func (o *ToolOverlay) Configure(w, h int) {
 	o.w, o.h = w, h
 	o.boxWidth = float64(len(o.Tools)*boxSize + len(o.Tools)*lineThickness)
-	o.leftBound = (float64(o.w) - o.boxWidth) / 2
+	o.boxHeight = boxSize + lineThickness*2
+
+	o.leftBound = (float64(o.w) - o.boxWidth) * o.anchorX
 	o.rightBound = o.leftBound + o.boxWidth
-	o.bottomBound = topOffset + boxSize + lineThickness*2
+	if o.anchorY > 0 {
+		o.topBound = float64(o.h)*o.anchorY - float64(o.boxHeight)/2
+		o.bottomBound = float64(o.h)*o.anchorY + float64(o.boxHeight)/2
+	} else {
+		o.topBound = 3
+		o.bottomBound = 3 + o.boxHeight
+	}
+}
+
+// GetBounds returns the bounding box of the toolbar.
+func (o *ToolOverlay) GetBounds() (x1, y1, x2, y2 float64) {
+	return o.leftBound, o.topBound, o.rightBound, o.bottomBound
 }
 
 // HandleKeypress implements tab & numbering shortcuts for keypress events. The
