@@ -128,7 +128,7 @@ func makeWin() (*Win, error) {
 		}},
 	}
 
-	w.tools = overlays.Toolbar(false, tools)
+	w.tools = overlays.ToolbarAtAnchor(false, tools, 0.35, 0)
 	if err := w.build(); err != nil {
 		return nil, err
 	}

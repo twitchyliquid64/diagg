@@ -101,8 +101,8 @@ func (o *ToolOverlay) Draw(da *gtk.DrawingArea, cr *cairo.Context) {
 
 	cr.NewPath()
 	cr.MoveTo(o.leftBound, o.topBound)
-	cr.LineTo(float64(o.w)-o.leftBound, o.topBound)
-	cr.LineTo(float64(o.w)-o.leftBound, o.topBound+o.boxHeight)
+	cr.LineTo(o.rightBound, o.topBound)
+	cr.LineTo(o.rightBound, o.topBound+o.boxHeight)
 	cr.LineTo(o.leftBound, o.topBound+o.boxHeight)
 	cr.LineTo(o.leftBound, o.topBound)
 	cr.ClosePath()
