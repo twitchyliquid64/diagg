@@ -139,6 +139,19 @@ func (fcv *FlowchartView) GetAtPosition(x, y float64) interface{} {
 	return nil
 }
 
+// GetViewParameters returns the X & Y offsets of the current view, as well
+// as the current zoom level.
+func (fcv *FlowchartView) GetViewParameters() (float64, float64, float64) {
+	return fcv.offsetX, fcv.offsetY, fcv.zoom
+}
+
+// SetViewParameters sets the X & Y offsets of the current view, as well
+// as the current zoom level.
+func (fcv *FlowchartView) SetViewParameters(x, y, zoom float64) {
+	fcv.offsetX, fcv.offsetY, fcv.zoom = x, y, zoom
+	fcv.da.QueueDraw()
+}
+
 // AddOverlay installs the provided overlay.
 func (fcv *FlowchartView) AddOverlay(o Overlay) {
 	fcv.overlays = append(fcv.overlays, o)
