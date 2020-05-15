@@ -1,10 +1,11 @@
+// +build cgo
+
 package render
 
 import (
 	"github.com/gotk3/gotk3/cairo"
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
-	"github.com/twitchyliquid64/diagg/flow"
 )
 
 type DrawFunc func(da *gtk.DrawingArea, cr *cairo.Context, animStep int64, x, y float64)
@@ -27,27 +28,6 @@ type NodeDecorator interface {
 	NodeIcon() *gdk.Pixbuf
 	NodeColor() (float64, float64, float64)
 	NodeOverlayDraw() DrawFunc
-}
-
-// DecoratedNode describes nodes which provide decoration information.
-type DecoratedNode interface {
-	NodeDecorator() NodeDecorator
-}
-
-type Node interface {
-	Pos() (float64, float64)
-	Node() flow.Node
-}
-
-type Pad interface {
-	Pos() (float64, float64)
-	Pad() flow.Pad
-}
-
-type Edge interface {
-	FromPos() (float64, float64)
-	ToPos() (float64, float64)
-	Edge() flow.Edge
 }
 
 // Appearance represents an implementation which can display a flowchart.

@@ -1,3 +1,5 @@
+// +build cgo
+
 package render
 
 import (
@@ -6,11 +8,6 @@ import (
 	"github.com/gotk3/gotk3/cairo"
 	"github.com/gotk3/gotk3/gtk"
 )
-
-// ColoredPad describes a pad with a custom color.
-type ColoredPad interface {
-	PadColor() (float64, float64, float64)
-}
 
 func (renderer *BasicRenderer) DrawPad(da *gtk.DrawingArea, cr *cairo.Context, animStep int64, p Pad) {
 	var (
