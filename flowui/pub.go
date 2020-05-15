@@ -162,3 +162,8 @@ func (fcv *FlowchartView) AddOverlay(o Overlay) {
 func (fcv *FlowchartView) SetDoubleClickCallback(cb func(interface{}, float64, float64)) {
 	fcv.doublePressCB = cb
 }
+
+// SetRenderer changes the renderer to the provided object.
+func (fcv *FlowchartView) SetRenderer(r render.Appearance) {
+	fcv.model.r = r
+}
