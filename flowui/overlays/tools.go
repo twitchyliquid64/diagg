@@ -9,6 +9,13 @@ import (
 const (
 	boxSize       = 48
 	lineThickness = 1
+
+	// AnchorToRight can be provided as the X anchor to pin the tool overlay
+	// to the right of the screen.
+	AnchorToRight = 9001
+	// AnchorToLeft can be provided as the X anchor to pin the tool overlay
+	// to the left of the screen.
+	AnchorToLeft = 1337
 )
 
 type Tool struct {
@@ -172,8 +179,17 @@ func (o *ToolOverlay) Configure(w, h int) {
 	o.boxWidth = float64(len(o.Tools)*boxSize + len(o.Tools)*lineThickness)
 	o.boxHeight = boxSize + lineThickness*2
 
-	o.leftBound = (float64(o.w) - o.boxWidth) * o.anchorX
-	o.rightBound = o.leftBound + o.boxWidth
+	if o.anchorX == AnchorToRight {
+		o.leftBound = float64(o.w) - o.boxWidth - 3
+		o.rightBound = o.leftBound + o.boxWidth
+	} else if o.anchorX == AnchorToLeft {
+		o.leftBound = 3
+		o.rightBound = o.leftBound + o.boxWidth
+	} else {
+		o.leftBound = (float64(o.w) - o.boxWidth) * o.anchorX
+		o.rightBound = o.leftBound + o.boxWidth
+	}
+
 	if o.anchorY > 0 {
 		o.topBound = float64(o.h)*o.anchorY - float64(o.boxHeight)/2
 		o.bottomBound = float64(o.h)*o.anchorY + float64(o.boxHeight)/2
