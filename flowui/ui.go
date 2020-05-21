@@ -36,6 +36,10 @@ type Overlay interface {
 	// intercepted and not processed by the flowchart, HandleMotionEvent() should
 	// return true.
 	HandlePressEvent(evt *gdk.Event, press bool) bool
+	// HandleScrollEvent is called on mouse-wheel events. If the event should
+	// be intercepted and not processed by the flowchart, HandleScrollEvent should
+	// return true.
+	HandleScrollEvent(evt *gdk.EventScroll) bool
 	// Draw is called to draw the overlay.
 	Draw(da *gtk.DrawingArea, cr *cairo.Context)
 }
@@ -293,6 +297,12 @@ func (fcv *FlowchartView) onLeftFocus(area *gtk.DrawingArea, event *gdk.Event) {
 
 func (fcv *FlowchartView) onScrollEvent(area *gtk.DrawingArea, event *gdk.Event) {
 	evt := gdk.EventScrollNewFromEvent(event)
+	for _, o := range fcv.overlays {
+		if o.HandleScrollEvent(evt) {
+			return
+		}
+	}
+
 	amt := evt.DeltaY() / 20
 	x, y := evt.X(), evt.Y()
 	if amt == 0 {

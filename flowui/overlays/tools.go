@@ -204,6 +204,10 @@ func (o *ToolOverlay) GetBounds() (x1, y1, x2, y2 float64) {
 	return o.leftBound, o.topBound, o.rightBound, o.bottomBound
 }
 
+func (o *ToolOverlay) HandleScrollEvent(evt *gdk.EventScroll) bool {
+	return false
+}
+
 // HandleKeypress implements tab & numbering shortcuts for keypress events. The
 // caller should invoke this function for key presses.
 func (o *ToolOverlay) HandleKeypress(keyEvent *gdk.EventKey) bool {
