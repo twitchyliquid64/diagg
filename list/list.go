@@ -5,7 +5,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
 )
 
@@ -31,19 +30,12 @@ type ListItemBuilder interface {
 
 type item struct {
 	b       *gtk.Box
-	e       *gtk.EventBox
 	w       gtk.IWidget
 	visible bool
 
 	data interface{}
 	view interface{}
 }
-
-func (i *item) onDelete() {}
-
-func (i *item) onKeyPress(b *gtk.EventBox, ev *gdk.Event) {}
-
-func (i *item) onClicked(b *gtk.EventBox, event *gdk.Event) {}
 
 // List implements a scrollable list of items.
 type List struct {
@@ -172,18 +164,18 @@ func (l *List) makeItem(data interface{}) (item, error) {
 	if r.b, err = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 0); err != nil {
 		return item{}, err
 	}
-	r.b.SetCanFocus(true)
-	if r.e, err = gtk.EventBoxNew(); err != nil {
-		return item{}, err
-	}
-	r.e.Connect("button-press-event", r.onClicked)
-	r.e.Connect("key-press-event", r.onKeyPress)
-	r.e.Connect("delete-event", r.onDelete)
+	// if r.e, err = gtk.EventBoxNew(); err != nil {
+	// 	return item{}, err
+	// }
+	// r.e.Connect("button-press-event", r.onClicked)
+	// r.e.Connect("key-press-event", r.onKeyPress)
+	// r.e.Connect("delete-event", r.onDelete)
 
 	r.b.Add(r.w)
-	r.e.Add(r.b)
-	l.box.Add(r.e)
-	r.e.ShowAll()
+	r.b.SetFocusChild(r.w)
+	// r.e.Add(r.b)
+	l.box.Add(r.b)
+	r.b.ShowAll()
 	return r, nil
 }
 
