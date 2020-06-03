@@ -148,6 +148,14 @@ func (fl *Layout) MoveNode(n Node, x, y float64) {
 	}
 }
 
+// RecomputePadPositions should be called by the user after the position of
+// any pad on the node changes.
+func (fl *Layout) RecomputePadPositions(n Node) {
+	for _, p := range n.Pads() {
+		fl.padPosRecompute(p)
+	}
+}
+
 // DeleteNode removes a node from the layout, destroying all edges to other
 // nodes in the layout.
 func (fl *Layout) DeleteNode(n Node) {
